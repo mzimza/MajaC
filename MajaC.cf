@@ -1,0 +1,83 @@
+--Author Maja Zalewska
+--index 336088
+--Grammar for MajaC language,
+--based on grammar for C language https://github.com/BNFC/bnfc/blob/master/examples/C/C.cf
+
+comment "//";
+comment "/*" "*/";
+
+Prog. Program ::= [Stmt];
+
+separator nonempty Ident ",";
+separator Stmt "";
+separator DeclVar ",";
+
+DeclV. Decl ::= DeclVar ";";
+DeclF. Decl ::= DeclFun;
+DeclA. Decl ::= DeclArr ";";
+
+DVar. DeclVar ::= Type Ident;
+DFun. DeclFun ::= Type Ident "(" [DeclVar] ")" "{"[Stmt] "return" Exp ";" "}"; 
+DArr. DeclArr ::= Type Ident "[" Exp "]";
+
+SAssign. Stmt ::= Ident "=" Exp ";";
+SAssignS. Stmt ::= Ident "." Ident "=" Exp ";";
+SAssignA. Stmt ::= Ident "[" Exp "]" "=" Exp ";";
+SBlock. Stmt ::= Block;
+SDeclF. Stmt ::= Decl;
+SDeclA. Stmt ::= DeclArr "=" Exp ";";
+SDeclV. Stmt ::= DeclVar "=" Exp ";";
+SIf. Stmt ::= "if" Exp Block;
+SIfElse. Stmt ::= "if" Exp Block "else" Block;
+SFor. Stmt ::= "for"  DeclVar "=" Exp ";" Exp ";" Stmt  Block;
+SWhile. Stmt ::= "while" Exp Block;
+SPrint. Stmt ::= "print" "(" Exp ")" ";";
+SBl. Block ::= "{" [Stmt] "}";
+
+EIArr. Exp ::= ArrayInit;
+EITup. Exp ::= TupleInit;
+EOr. Exp1 ::= Exp1 "||" Exp2;
+EAnd. Exp2 ::= Exp2 "&&" Exp3;
+EEq. Exp3 ::= Exp3 "==" Exp4;
+ENeq. Exp3 ::= Exp3 "!=" Exp4;
+ELt. Exp4 ::= Exp4 "<" Exp5;
+EGt. Exp4 ::= Exp4 ">" Exp5;
+ELe. Exp4 ::= Exp4 "<=" Exp5;
+EGe. Exp4 ::= Exp4 ">=" Exp5;
+EAdd. Exp5 ::= Exp5 "+" Exp6;
+ESub. Exp5 ::= Exp5 "-" Exp6;
+EMul. Exp6 ::= Exp6 "*" Exp7;
+EDiv. Exp6 ::= Exp6 "/" Exp7;
+EPreop. Exp7 ::= Unary_operator Exp8;
+EFunkpar. Exp8 ::= Exp8 "(" [Exp] ")";
+EArray. Exp8 ::= Exp8 "[" Exp "]";
+ESelect. Exp8 ::= Exp8 "." Ident;
+EVar. Exp9 ::= Ident;
+EConst. Exp9 ::= Constant;
+coercions Exp 9;
+
+separator Exp ",";
+
+IArr. ArrayInit ::= "{" [Exp] "}";
+ITup. TupleInit ::= "(" Exp "," [Exp] ")";
+
+CInt. Constant ::= Integer;
+CTrue. Constant ::= "true";
+CFalse. Constant ::= "false";
+
+Negative. Unary_operator ::= "-";
+LogNeg. Unary_operator ::= "!";
+
+TInt. Type ::= "int";
+TBool. Type ::= "bool";
+TStruct. Type ::= Struct_spec;
+TTuple. Type ::= "(" [Type] ")";
+TRef. Type ::= Type "&";
+
+separator nonempty Type ",";
+
+Tag. Struct_spec ::= "struct" Ident "{" [Struct_dec] "}";
+TagType. Struct_spec ::= "struct" Ident;
+
+separator Struct_dec ";";
+StrField. Struct_dec ::= Type Ident;
