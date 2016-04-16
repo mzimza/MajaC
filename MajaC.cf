@@ -64,6 +64,8 @@ ITup. TupleInit ::= "(" Exp "," [Exp] ")";
 CInt. Constant ::= Integer;
 CTrue. Constant ::= "true";
 CFalse. Constant ::= "false";
+CTrueB. Constant ::= "True";
+CFalseB. Constant ::= "False";
 
 Negative. Unary_operator ::= "-";
 LogNeg. Unary_operator ::= "!";

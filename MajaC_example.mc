@@ -9,6 +9,7 @@ a = 0; // simple assign
 bool b = true; // bool
 bool c = False; // bool capitalised
 (int, int, bool) t = (1, 2, 1); // tuple
+print (t[1]); // outputs first elem in tuple
 struct str_type { int a; bool b; } d; // struct type declaration
 struct str_type d = {108, True}; // initialize whole struct
 d.b = true; // assigning value to a struct's field
