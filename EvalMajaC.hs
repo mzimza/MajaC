@@ -18,13 +18,22 @@ import Data.Maybe
 
 data ExpResult = MajaInt Integer | MajaBool Bool
  
+type Loc = Int
 type Var = Ident
-type Store = M.Map Var ExpResult
-type VEnv = M.Map Var ExpResult
+type Store = (M.Map Loc ExpResult, Loc)
+type VEnv = M.Map Var Loc
 --type FEnv = M.Map Var ()
 
+data S = S (VEnv, Store) deriving (Eq, Ord, Show)  
+
 initialStore :: Store
-initialStore = M.empty
+initialStore = (M.empty, 0)
+
+initialVEnv :: VEnv
+initialVEnv = M.empty
+
+initS :: S
+initS = S (initialVEnv, initialStore)
 
 instance Eq ExpResult where
    (MajaInt i1) == (MajaInt i2) = i1 == i2
@@ -49,10 +58,10 @@ instance Show ExpResult where
    show (MajaBool b) = show b
 
 execProg :: Program -> IO ()
-execProg (Prog p) = execProg' p initialStore 
+execProg (Prog p) = execProg' p initS 
             where
-               execProg' [] s = mapM_ (putStrLn . show) $ M.toList s
-               execProg' (p:ps) s = execProg' ps $ execStmt p s
+               execProg' [] (S(e,st)) = mapM_ (putStrLn . show) $ M.toList $ e
+               execProg' (p:ps) (S(e,st)) = execProg' ps $ execStmt p (S(e,st))
                                           
 majaBOp :: (Bool -> Bool -> Bool) -> ExpResult -> ExpResult -> ExpResult
 majaBOp f (MajaBool b1) (MajaBool b2) = MajaBool $ f b1 b2
@@ -63,14 +72,28 @@ majaDiv :: ExpResult -> ExpResult -> ExpResult
 majaNot :: ExpResult -> ExpResult
 majaNot (MajaBool b) = MajaBool $ not b
 
-getVar :: MonadState (Store) m => Var -> m ExpResult
+getLoc :: MonadState (S) m => Var -> m Loc
+getLoc v = do
+            S (venv, _) <- get
+            --x <- M.lookup v venv
+            return $ fromMaybe (error "<getLoc>: Undefined variable") $ M.lookup v venv 
+
+getVar :: MonadState (S) m => Var -> m ExpResult
 getVar v = do
-             x <- gets (M.lookup v)
-             return $ fromMaybe (error "Undefined variable") x
+             loc <- getLoc v
+             S(_, (store, _)) <- get
+             return $ fromMaybe (error "<getVar>: Undefined variable") $ M.lookup loc store 
 
-evalExp e = execState (evalExpM e) M.empty
+assign :: MonadState (S) m => ExpResult -> Loc -> m ()
+assign e loc = do
+               S (venv, (store, l)) <- get
+               case M.lookup loc store of
+                  Just expr -> put $ S (venv, (M.insert loc e store, l))
+                  Nothing -> error ("Location unused")
 
-evalExpM :: (MonadState (Store) m) => Exp -> m ExpResult
+evalExp e s = execState (evalExpM e) s
+
+evalExpM :: (MonadState (S) m) => Exp -> m ExpResult
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
                            y <- evalExpM e2
@@ -154,8 +177,11 @@ evalExpM (EConst (CInt i)) = return $ MajaInt i
 
 execStmt s m = execState (execStmtM s) m
 
-execStmtM :: (MonadState (Store) m) => Stmt -> m ()
-execStmtM (SAssign v e) = evalExpM e >>= modify . M.insert v
+execStmtM :: (MonadState (S) m) => Stmt -> m ()
+execStmtM (SAssign v e) = do
+                           x <- evalExpM e
+                           loc <- getLoc v
+                           assign x loc
 {-execStmtM (SAssignS v vf e) = do
                                  x <- evalExpM e
                                  s <- getStruc-} 
