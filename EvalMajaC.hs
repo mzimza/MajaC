@@ -61,7 +61,9 @@ execProg :: Program -> IO ()
 execProg (Prog p) = execProg' p initS 
             where
                execProg' [] (S(e,st)) = mapM_ (putStrLn . show) $ M.toList $ e
-               execProg' (p:ps) (S(e,st)) = execProg' ps $ execStmt p (S(e,st))
+               execProg' (p:ps) (S(e,st)) = do
+                                             x <- execStmt p (S(e, st))
+                                             execProg' ps x -- $ execStmt p $ liftM (S(e,st))
                                           
 majaBOp :: (Bool -> Bool -> Bool) -> ExpResult -> ExpResult -> ExpResult
 majaBOp f (MajaBool b1) (MajaBool b2) = MajaBool $ f b1 b2
@@ -72,25 +74,25 @@ majaDiv :: ExpResult -> ExpResult -> ExpResult
 majaNot :: ExpResult -> ExpResult
 majaNot (MajaBool b) = MajaBool $ not b
 
-getLoc :: MonadState (S) m => Var -> m Loc
+getLoc :: MonadState S m => Var -> m Loc
 getLoc v = do
             S (venv, _) <- get
             return $ fromMaybe (error "<getLoc>: Undefined variable") $ M.lookup v venv 
 
-getVar :: MonadState (S) m => Var -> m ExpResult
+getVar :: MonadState S m => Var -> m ExpResult
 getVar v = do
              loc <- getLoc v
              S(_, (store, _)) <- get
              return $ fromMaybe (error "<getVar>: Undefined variable") $ M.lookup loc store 
 
-assign :: MonadState (S) m => ExpResult -> Loc -> m ()
+assign :: MonadState S m => ExpResult -> Loc -> m ()
 assign e loc = do
                S (venv, (store, l)) <- get
                case M.lookup loc store of
                   Just expr -> put $ S (venv, (M.insert loc e store, l))
                   Nothing -> error ("Location unused")
 
-localEnv :: MonadState (S) m => m t -> m ()
+localEnv :: MonadState S m => m t -> m ()
 localEnv f = do
                S (venv, store) <- get
                exec <- f
@@ -102,9 +104,9 @@ ifelse e f1 f2 = case e of
                      MajaBool True -> f1
                      MajaBool False -> f2
 
-evalExp e s = execState (evalExpM e) s
+evalExp e s = execStateT (evalExpM e) s
 
-evalExpM :: (MonadState (S) m) => Exp -> m ExpResult
+evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
                            y <- evalExpM e2
@@ -186,15 +188,15 @@ evalExpM (EConst (CInt i)) = return $ MajaInt i
 
 --STATEMENTS
 
-execStmt s m = execState (execStmtM s) m
+execStmt s m = execStateT (execStmtM s) m
 
-execStmtB :: (MonadState S m) => Block -> m ()
+execStmtB :: (MonadTrans m, MonadState S (m IO)) => Block -> m IO ()
 execStmtB (SBl b) = localEnv $ execStmtM' b
                         where
                            execStmtM' [] = return ()
-                           execStmtM' (b:bs) = execStmtM b >> execStmtM' bs
+                           execStmtM' (s:ss) = execStmtM s >> execStmtM' ss
 
-execStmtM :: (MonadState (S) m) => Stmt -> m ()
+execStmtM :: (MonadTrans m, MonadState S (m IO)) => Stmt -> m IO ()
 execStmtM (SAssign v e) = do
                            x <- evalExpM e
                            loc <- getLoc v
@@ -227,3 +229,9 @@ execStmtM while@(SWhile e b) = do
                            ifelse x 
                                   (execStmtB b >> execStmtM while)
                                   (return ())
+{-
+execStmtM (SPrint e) = do
+                        x <- evalExpM e
+                        --str <- return $ show x
+                        liftIO $ runStateT $ putStrLn $ show x
+-}
