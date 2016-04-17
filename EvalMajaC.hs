@@ -63,7 +63,7 @@ execProg (Prog p) = execProg' p initS
                execProg' [] (S(e,st)) = mapM_ (putStrLn . show) $ M.toList $ e
                execProg' (p:ps) (S(e,st)) = do
                                              x <- execStmt p (S(e, st))
-                                             execProg' ps x -- $ execStmt p $ liftM (S(e,st))
+                                             execProg' ps x 
                                           
 majaBOp :: (Bool -> Bool -> Bool) -> ExpResult -> ExpResult -> ExpResult
 majaBOp f (MajaBool b1) (MajaBool b2) = MajaBool $ f b1 b2
@@ -211,17 +211,9 @@ execStmtM (SBlock b) = execStmtB b
 execStmtM (SIf e b) = do
                         x <- evalExpM e
                         ifelse x (execStmtB b) (return ())
-                        {-case x of
-                           MajaBool True -> execStmtB b
-                           MajaBool False -> return ()
--}
 execStmtM (SIfElse e b1 b2) = do
                               x <- evalExpM e
                               ifelse x (execStmtB b1) (execStmtB b2)
- {-                             case x of
-                                 MajaBool True -> execStmtB b1
-                                 MajaBool False -> execStmtB b2
--}
 --execStmtM (SFor d e1 e2 s b) = do
 
 execStmtM while@(SWhile e b) = do
@@ -229,9 +221,6 @@ execStmtM while@(SWhile e b) = do
                            ifelse x 
                                   (execStmtB b >> execStmtM while)
                                   (return ())
-{-
 execStmtM (SPrint e) = do
                         x <- evalExpM e
-                        --str <- return $ show x
-                        liftIO $ runStateT $ putStrLn $ show x
--}
+                        lift $  putStrLn $ show x
