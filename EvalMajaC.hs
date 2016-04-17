@@ -55,7 +55,7 @@ instance Num ExpResult where
 
 instance Show ExpResult where
    show (MajaInt i) = show i
-   show (MajaBool b) = show b
+   show (MajaBool b) = show b 
 
 execProg :: Program -> IO ()
 execProg (Prog p) = execProg' p initS 
@@ -91,6 +91,20 @@ assign e loc = do
                case M.lookup loc store of
                   Just expr -> put $ S (venv, (M.insert loc e store, l))
                   Nothing -> error ("Location unused")
+
+newVar :: MonadState S m => Type -> Var -> m ()
+newVar t v = do
+            S(venv, (store, loc)) <- get
+            case t of
+              TInt -> put $ S ((M.insert v loc venv), (M.insert loc (MajaInt 0) store, (loc + 1)))
+              TBool -> put $ S ((M.insert v loc venv), (M.insert loc (MajaBool False) store, (loc + 1)))
+
+newVarAssign :: MonadState S m => Type -> Var -> ExpResult -> m ()
+newVarAssign t v e = do
+            S(venv, (store, loc)) <- get
+            case t of
+              TInt -> put $ S ((M.insert v loc venv), (M.insert loc e store, (loc + 1)))
+              TBool -> put $ S ((M.insert v loc venv), (M.insert loc e store, (loc + 1)))
 
 localEnv :: MonadState S m => m t -> m ()
 localEnv f = do
@@ -207,6 +221,7 @@ execStmtM (SAssign v e) = do
 execStmtM (SBlock b) = execStmtB b
 
 --Decl/DeclArr/DeclVar
+execStmtM (SDeclV (DVar t v) e) = evalExpM e >>= newVarAssign t v
 
 execStmtM (SIf e b) = do
                         x <- evalExpM e
@@ -221,6 +236,13 @@ execStmtM while@(SWhile e b) = do
                            ifelse x 
                                   (execStmtB b >> execStmtM while)
                                   (return ())
+
 execStmtM (SPrint e) = do
                         x <- evalExpM e
                         lift $  putStrLn $ show x
+
+execDeclM :: (MonadTrans m, MonadState S (m IO)) => Decl -> m IO ()
+execDeclM (DeclV (DVar t v)) = newVar t v
+
+--pozostale deklaracje, jak bede miec typy
+--execDeclM (DeclF
