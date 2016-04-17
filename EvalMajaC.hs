@@ -75,7 +75,6 @@ majaNot (MajaBool b) = MajaBool $ not b
 getLoc :: MonadState (S) m => Var -> m Loc
 getLoc v = do
             S (venv, _) <- get
-            --x <- M.lookup v venv
             return $ fromMaybe (error "<getLoc>: Undefined variable") $ M.lookup v venv 
 
 getVar :: MonadState (S) m => Var -> m ExpResult
@@ -90,6 +89,18 @@ assign e loc = do
                case M.lookup loc store of
                   Just expr -> put $ S (venv, (M.insert loc e store, l))
                   Nothing -> error ("Location unused")
+
+localEnv :: MonadState (S) m => m t -> m ()
+localEnv f = do
+               S (venv, store) <- get
+               exec <- f
+               S (_, store') <- get
+               put $ S (venv, store')
+
+ifelse :: ExpResult -> t -> t -> t
+ifelse e f1 f2 = case e of
+                     MajaBool True -> f1
+                     MajaBool False -> f2
 
 evalExp e s = execState (evalExpM e) s
 
@@ -177,6 +188,12 @@ evalExpM (EConst (CInt i)) = return $ MajaInt i
 
 execStmt s m = execState (execStmtM s) m
 
+execStmtB :: (MonadState S m) => Block -> m ()
+execStmtB (SBl b) = localEnv $ execStmtM' b
+                        where
+                           execStmtM' [] = return ()
+                           execStmtM' (b:bs) = execStmtM b >> execStmtM' bs
+
 execStmtM :: (MonadState (S) m) => Stmt -> m ()
 execStmtM (SAssign v e) = do
                            x <- evalExpM e
@@ -185,7 +202,28 @@ execStmtM (SAssign v e) = do
 {-execStmtM (SAssignS v vf e) = do
                                  x <- evalExpM e
                                  s <- getStruc-} 
-execStmtM (SBlock (SBl b)) = execStmtM' b
-                        where
-                           execStmtM' [] = return ()
-                           execStmtM' (b:bs) = execStmtM b >> execStmtM' bs 
+execStmtM (SBlock b) = execStmtB b
+
+--Decl/DeclArr/DeclVar
+
+execStmtM (SIf e b) = do
+                        x <- evalExpM e
+                        ifelse x (execStmtB b) (return ())
+                        {-case x of
+                           MajaBool True -> execStmtB b
+                           MajaBool False -> return ()
+-}
+execStmtM (SIfElse e b1 b2) = do
+                              x <- evalExpM e
+                              ifelse x (execStmtB b1) (execStmtB b2)
+ {-                             case x of
+                                 MajaBool True -> execStmtB b1
+                                 MajaBool False -> execStmtB b2
+-}
+--execStmtM (SFor d e1 e2 s b) = do
+
+execStmtM while@(SWhile e b) = do
+                           x <- evalExpM e
+                           ifelse x
+                                 (execStmtB b >> execStmtM while)
+                                 (return ())
