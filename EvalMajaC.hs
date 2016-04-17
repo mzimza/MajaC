@@ -224,6 +224,6 @@ execStmtM (SIfElse e b1 b2) = do
 
 execStmtM while@(SWhile e b) = do
                            x <- evalExpM e
-                           ifelse x
-                                 (execStmtB b >> execStmtM while)
-                                 (return ())
+                           ifelse x 
+                                  (execStmtB b >> execStmtM while)
+                                  (return ())
