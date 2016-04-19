@@ -57,7 +57,7 @@ data Exp
     | EMul Exp Exp
     | EDiv Exp Exp
     | EPreop Unary_operator Exp
-    | EFunkpar Exp [Exp]
+    | EFunkpar Ident [Exp]
     | EArray Exp Exp
     | ESelect Exp Ident
     | EVar Ident

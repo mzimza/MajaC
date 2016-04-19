@@ -145,7 +145,7 @@ instance Print Exp where
     EMul exp1 exp2 -> prPrec i 6 (concatD [prt 6 exp1, doc (showString "*"), prt 7 exp2])
     EDiv exp1 exp2 -> prPrec i 6 (concatD [prt 6 exp1, doc (showString "/"), prt 7 exp2])
     EPreop unaryoperator exp -> prPrec i 7 (concatD [prt 0 unaryoperator, prt 8 exp])
-    EFunkpar exp exps -> prPrec i 8 (concatD [prt 8 exp, doc (showString "("), prt 0 exps, doc (showString ")")])
+    EFunkpar id exps -> prPrec i 8 (concatD [prt 0 id, doc (showString "("), prt 0 exps, doc (showString ")")])
     EArray exp1 exp2 -> prPrec i 8 (concatD [prt 8 exp1, doc (showString "["), prt 0 exp2, doc (showString "]")])
     ESelect exp id -> prPrec i 8 (concatD [prt 8 exp, doc (showString "."), prt 0 id])
     EVar id -> prPrec i 9 (concatD [prt 0 id])
