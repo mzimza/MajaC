@@ -36,13 +36,15 @@ data Stmt
     | SFor DeclVar Exp Exp Stmt Block
     | SWhile Exp Block
     | SPrint Exp
+    | SFunC FuncCall
   deriving (Eq, Ord, Show, Read)
 
 data Block = SBl [Stmt]
   deriving (Eq, Ord, Show, Read)
 
 data Exp
-    = EIArr ArrayInit
+    = EEmpty
+    | EIArr ArrayInit
     | EITup TupleInit
     | EOr Exp Exp
     | EAnd Exp Exp
@@ -57,11 +59,14 @@ data Exp
     | EMul Exp Exp
     | EDiv Exp Exp
     | EPreop Unary_operator Exp
-    | EFunkpar Ident [Exp]
+    | EFunkpar FuncCall
     | EArray Exp Exp
     | ESelect Exp Ident
     | EVar Ident
     | EConst Constant
+  deriving (Eq, Ord, Show, Read)
+
+data FuncCall = FCall Ident [Exp]
   deriving (Eq, Ord, Show, Read)
 
 data ArrayInit = IArr [Exp]
@@ -77,7 +82,12 @@ data Unary_operator = Negative | LogNeg
   deriving (Eq, Ord, Show, Read)
 
 data Type
-    = TInt | TBool | TStruct Struct_spec | TTuple [Type] | TRef Type
+    = TInt
+    | TBool
+    | TStruct Struct_spec
+    | TTuple [Type]
+    | TRef Type
+    | TVoid
   deriving (Eq, Ord, Show, Read)
 
 data Struct_spec = Tag Ident [Struct_dec] | TagType Ident

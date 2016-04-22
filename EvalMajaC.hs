@@ -16,7 +16,7 @@ import qualified Data.Map as M
 import Data.Maybe
 
 
-data ExpResult = MajaInt Integer | MajaBool Bool
+data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid  
  
 type Loc = Int
 type Var = Ident
@@ -86,7 +86,7 @@ majaNot (MajaBool b) = MajaBool $ not b
 getLoc :: MonadState S m => Var -> m Loc
 getLoc v = do
             S (_, venv, _) <- get
-            return $ fromMaybe (error "<getLoc>: Undefined variable") $ M.lookup v venv 
+            return $ fromMaybe (error $ "<getLoc>: Undefined variable" ++ show v) $ M.lookup v venv 
 
 getVar :: MonadState S m => Var -> m ExpResult
 getVar v = do
@@ -139,10 +139,10 @@ assignLocParams d = assign' d []
                               S(fenv, venv, (store, loc)) <- get
                               case t of
                                  TInt -> do
-                                          put $ S (fenv, venv, (M.insert loc (MajaInt 0) store, (loc + 1)))  
+                                          put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaInt 0) store, (loc + 1)))  
                                           assign' ds $ loc : l
                                  TBool -> do
-                                           put $ S (fenv, venv, (M.insert loc (MajaBool False) store, (loc + 1)))
+                                           put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaBool False) store, (loc + 1)))
                                            assign' ds $ loc : l
                                  
                                  _ -> assign' ds l
@@ -157,10 +157,32 @@ newFun t v d s e = do
 getFun :: MonadState S m => Var -> m Func
 getFun f = do
             S (fenv, _, _) <- get
-            return $ fromMaybe (error "<getLoc>: Undefined variable") $ M.lookup f fenv 
+            return $ fromMaybe (error "<getFun>: Undefined variable") $ M.lookup f fenv 
 
 --assignFunParams :: MonadState S m => Func -> 
-
+assignFunParams (Func (d, l, _, _, _, _, venv)) p = assign' d l p venv
+   where
+      assign' [] _ _ venv = return venv
+      assign' ((DVar t v):ds) l (p:ps) venv = do
+         case t of
+            TInt -> do
+                     x <- evalExpM p
+                     let (l':ls) = l
+                     assign x l'
+                     assign' ds ls ps venv
+            TBool -> do 
+                        x <- evalExpM p
+                        let (l':ls) = l
+                        assign x l'
+                        assign' ds ls ps venv
+            TRef _ -> do
+                        case p of
+                           EVar var -> do
+                              lift $ putStrLn $ show var
+                              loc <- getLoc var
+                              assign' ds l ps (M.insert v loc venv)
+                           _ -> error ("<assignFunParams> Wrong usage of reference") 
+            
 ifelse :: ExpResult -> t -> t -> t
 ifelse e f1 f2 = case e of
                      MajaBool True -> f1
@@ -169,6 +191,7 @@ ifelse e f1 f2 = case e of
 evalExp e s = execStateT (evalExpM e) s
 
 evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
+evalExpM (EEmpty) = return MajaVoid
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
                            y <- evalExpM e2
@@ -238,8 +261,9 @@ evalExpM (EPreop LogNeg e) = do
                                 x <- evalExpM e
                                 return $ majaNot x
 
-evalExpM (EFunkpar f e) = do
-                           Func (d, l, s, ex, _, fenv, venv) <- getFun f
+evalExpM (EFunkpar (FCall f e)) = do
+                           fun@(Func (d, l, s, ex, _, fenv, venv)) <- getFun f
+                           venv <- assignFunParams fun e
                            x <- localEnvF (execStmts s >> evalExpM ex) fenv venv
                            return x
                            where
@@ -303,6 +327,10 @@ execStmtM while@(SWhile e b) = do
 execStmtM (SPrint e) = do
                         x <- evalExpM e
                         lift $  putStrLn $ show x
+
+execStmtM (SFunC f) = do
+                        x <- evalExpM (EFunkpar f)
+                        return ()
 
 execDeclM :: (MonadTrans m, MonadState S (m IO)) => Decl -> m IO ()
 execDeclM (DeclV (DVar t v)) = newVar t v

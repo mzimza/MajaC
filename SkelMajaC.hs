@@ -43,11 +43,13 @@ transStmt x = case x of
   SFor declvar exp1 exp2 stmt block -> failure x
   SWhile exp block -> failure x
   SPrint exp -> failure x
+  SFunC funccall -> failure x
 transBlock :: Block -> Result
 transBlock x = case x of
   SBl stmts -> failure x
 transExp :: Exp -> Result
 transExp x = case x of
+  EEmpty -> failure x
   EIArr arrayinit -> failure x
   EITup tupleinit -> failure x
   EOr exp1 exp2 -> failure x
@@ -63,11 +65,14 @@ transExp x = case x of
   EMul exp1 exp2 -> failure x
   EDiv exp1 exp2 -> failure x
   EPreop unaryoperator exp -> failure x
-  EFunkpar ident exps -> failure x
+  EFunkpar funccall -> failure x
   EArray exp1 exp2 -> failure x
   ESelect exp ident -> failure x
   EVar ident -> failure x
   EConst constant -> failure x
+transFuncCall :: FuncCall -> Result
+transFuncCall x = case x of
+  FCall ident exps -> failure x
 transArrayInit :: ArrayInit -> Result
 transArrayInit x = case x of
   IArr exps -> failure x
@@ -92,6 +97,7 @@ transType x = case x of
   TStruct structspec -> failure x
   TTuple types -> failure x
   TRef type_ -> failure x
+  TVoid -> failure x
 transStruct_spec :: Struct_spec -> Result
 transStruct_spec x = case x of
   Tag ident structdecs -> failure x

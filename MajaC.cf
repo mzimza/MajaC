@@ -33,7 +33,9 @@ SFor. Stmt ::= "for"  DeclVar "=" Exp ";" Exp ";" Stmt  Block;
 SWhile. Stmt ::= "while" Exp Block;
 SPrint. Stmt ::= "print" "(" Exp ")" ";";
 SBl. Block ::= "{" [Stmt] "}";
+SFunC. Stmt ::= FuncCall ";";
 
+EEmpty. Exp ::= ";";
 EIArr. Exp ::= ArrayInit;
 EITup. Exp ::= TupleInit;
 EOr. Exp1 ::= Exp1 "||" Exp2;
@@ -49,7 +51,7 @@ ESub. Exp5 ::= Exp5 "-" Exp6;
 EMul. Exp6 ::= Exp6 "*" Exp7;
 EDiv. Exp6 ::= Exp6 "/" Exp7;
 EPreop. Exp7 ::= Unary_operator Exp8;
-EFunkpar. Exp8 ::= Ident "(" [Exp] ")";
+EFunkpar. Exp8 ::= FuncCall;
 EArray. Exp8 ::= Exp8 "[" Exp "]";
 ESelect. Exp8 ::= Exp8 "." Ident;
 EVar. Exp9 ::= Ident;
@@ -57,6 +59,8 @@ EConst. Exp9 ::= Constant;
 coercions Exp 9;
 
 separator Exp ",";
+
+FCall. FuncCall ::= Ident "(" [Exp] ")";
 
 IArr. ArrayInit ::= "{" [Exp] "}";
 ITup. TupleInit ::= "(" Exp "," [Exp] ")";
@@ -75,6 +79,7 @@ TBool. Type ::= "bool";
 TStruct. Type ::= Struct_spec;
 TTuple. Type ::= "(" [Type] ")";
 TRef. Type ::= Type "&";
+TVoid. Type ::= "void";
 
 separator nonempty Type ",";
 
