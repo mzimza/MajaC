@@ -35,7 +35,7 @@ SPrint. Stmt ::= "print" "(" Exp ")" ";";
 SBl. Block ::= "{" [Stmt] "}";
 SFunC. Stmt ::= FuncCall ";";
 
-EEmpty. Exp ::= ";";
+EEmpty. Exp ::= " ";
 EIArr. Exp ::= ArrayInit;
 EITup. Exp ::= TupleInit;
 EOr. Exp1 ::= Exp1 "||" Exp2;
@@ -52,7 +52,7 @@ EMul. Exp6 ::= Exp6 "*" Exp7;
 EDiv. Exp6 ::= Exp6 "/" Exp7;
 EPreop. Exp7 ::= Unary_operator Exp8;
 EFunkpar. Exp8 ::= FuncCall;
-EArray. Exp8 ::= Exp8 "[" Exp "]";
+EArray. Exp8 ::= Ident "[" Exp "]";
 ESelect. Exp8 ::= Exp8 "." Ident;
 EVar. Exp9 ::= Ident;
 EConst. Exp9 ::= Constant;

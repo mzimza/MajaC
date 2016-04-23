@@ -131,7 +131,7 @@ instance Print Block where
 
 instance Print Exp where
   prt i e = case e of
-    EEmpty -> prPrec i 0 (concatD [doc (showString ";")])
+    EEmpty -> prPrec i 0 (concatD [doc (showString " ")])
     EIArr arrayinit -> prPrec i 0 (concatD [prt 0 arrayinit])
     EITup tupleinit -> prPrec i 0 (concatD [prt 0 tupleinit])
     EOr exp1 exp2 -> prPrec i 1 (concatD [prt 1 exp1, doc (showString "||"), prt 2 exp2])
@@ -148,7 +148,7 @@ instance Print Exp where
     EDiv exp1 exp2 -> prPrec i 6 (concatD [prt 6 exp1, doc (showString "/"), prt 7 exp2])
     EPreop unaryoperator exp -> prPrec i 7 (concatD [prt 0 unaryoperator, prt 8 exp])
     EFunkpar funccall -> prPrec i 8 (concatD [prt 0 funccall])
-    EArray exp1 exp2 -> prPrec i 8 (concatD [prt 8 exp1, doc (showString "["), prt 0 exp2, doc (showString "]")])
+    EArray id exp -> prPrec i 8 (concatD [prt 0 id, doc (showString "["), prt 0 exp, doc (showString "]")])
     ESelect exp id -> prPrec i 8 (concatD [prt 8 exp, doc (showString "."), prt 0 id])
     EVar id -> prPrec i 9 (concatD [prt 0 id])
     EConst constant -> prPrec i 9 (concatD [prt 0 constant])

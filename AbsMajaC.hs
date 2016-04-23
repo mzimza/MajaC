@@ -60,7 +60,7 @@ data Exp
     | EDiv Exp Exp
     | EPreop Unary_operator Exp
     | EFunkpar FuncCall
-    | EArray Exp Exp
+    | EArray Ident Exp
     | ESelect Exp Ident
     | EVar Ident
     | EConst Constant

@@ -2,6 +2,9 @@
 --Index 336088
 --Evaluation file
 --
+--TODO: type checker -> should check if variable is void or not
+--                   -> if void in function then return ; nothing else
+--      check if there isn't a variable like this already, when declaring
 
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -16,7 +19,8 @@ import qualified Data.Map as M
 import Data.Maybe
 
 
-data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid  
+data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid 
+                 | MajaArray [Loc] Type | MajaTuple [Loc]
  
 type Loc = Int
 type Var = Ident
@@ -60,16 +64,15 @@ instance Num ExpResult where
 instance Show ExpResult where
    show (MajaInt i) = show i
    show (MajaBool b) = show b 
+   show MajaVoid = show "MajaVoid"
+   show (MajaArray a t) = (show a) ++ (show t)
 
---instance Show S where
-  -- show ((fv(d, l, s, e, t), () = "decl: " ++ show d ++ "loc: " ++ show l ++ "type: " ++ t
- 
 execProg :: Program -> IO ()
 execProg (Prog p) = execProg' p initS 
             where
                execProg' [] (S(f,e,st)) = do
                                              mapM_ (putStrLn . show) $ M.toList e 
-                                             --mapM_ (putStrLn . show) $ M.toList f
+                                             mapM_ (putStrLn . show) $ M.toList $ fst st
                execProg' (p:ps) (S(f,e,st)) = do
                                              x <- execStmt p (S(f,e,st))
                                              execProg' ps x 
@@ -88,11 +91,22 @@ getLoc v = do
             S (_, venv, _) <- get
             return $ fromMaybe (error $ "<getLoc>: Undefined variable" ++ show v) $ M.lookup v venv 
 
+getLocArr :: MonadState S m => Var -> Int -> m Loc
+getLocArr v i = do
+            S (_, venv, _) <- get
+            (MajaArray arr _) <- getValueFromLoc $ fromMaybe (error $ "<getLocArray>: Undefined variable" ++ show v) $ M.lookup v venv 
+            return $ arr !! i
+
 getVar :: MonadState S m => Var -> m ExpResult
 getVar v = do
              loc <- getLoc v
              S(_, _, (store, _)) <- get
              return $ fromMaybe (error "<getVar>: Undefined variable") $ M.lookup loc store 
+
+getValueFromLoc :: MonadState S m => Loc -> m ExpResult
+getValueFromLoc loc = do
+               S(_, _, (store, _)) <- get
+               return $ fromMaybe (error "<getVar>: Undefined variable") $ M.lookup loc store 
 
 assign :: MonadState S m => ExpResult -> Loc -> m ()
 assign e loc = do
@@ -159,7 +173,7 @@ getFun f = do
             S (fenv, _, _) <- get
             return $ fromMaybe (error "<getFun>: Undefined variable") $ M.lookup f fenv 
 
---assignFunParams :: MonadState S m => Func -> 
+assignFunParams :: (MonadTrans m, MonadState S (m IO)) => Func -> [Exp] -> m IO VEnv 
 assignFunParams (Func (d, l, _, _, _, _, venv)) p = assign' d l p venv
    where
       assign' [] _ _ venv = return venv
@@ -181,8 +195,51 @@ assignFunParams (Func (d, l, _, _, _, _, venv)) p = assign' d l p venv
                               lift $ putStrLn $ show var
                               loc <- getLoc var
                               assign' ds l ps (M.insert v loc venv)
+                           EArray var e -> do
+                              lift $ putStrLn $ show var
+                              (MajaInt i) <- evalExpM e
+                              loc <- getLocArr var $ fromInteger i
+                              assign' ds l ps (M.insert v loc venv)
                            _ -> error ("<assignFunParams> Wrong usage of reference") 
-            
+
+newArr :: (MonadTrans m, MonadState S (m IO)) => Type -> Var -> Exp -> m IO () 
+newArr t v e = do
+                  S(fenv, venv, (store, loc)) <- get
+                  x <- evalExpM e
+                  (arr, (store', l)) <- assign' [] x (store, (loc+1)) t
+                  put $ S (fenv, (M.insert v loc venv), (M.insert loc arr store', l))
+                  where
+                     assign' l 0 (store, loc) t = return ((MajaArray (reverse l) t) , (store, loc))
+                     assign' l x (store, loc) t =
+                        do
+                           case t of      
+                              TInt -> assign' (loc:l) (x-1) ((M.insert loc (MajaInt 0) store), loc+1) t
+                              TBool -> assign' (loc:l) (x-1) ((M.insert loc (MajaBool False) store), loc+1) t
+                            
+assignArr :: MonadState S m => Var -> ExpResult -> ExpResult -> m ()
+assignArr v (MajaInt i) e = do
+                     (MajaArray l _) <- getVar v
+                     if length l <= fromInteger i then error ("<assignArr>: Index out of range")
+                     else assign e (l !! fromInteger i)
+
+getElemAt v (MajaInt i) = do
+                           (MajaArray l _) <- getVar v
+                           if length l <= fromInteger i then error ("<getElemAt>: Index out of range")
+                           else getValueFromLoc (l !! fromInteger i)
+
+assignArrAll e = do
+                  assign' e [] TVoid
+                  where
+                     assign' [] l t = return $ MajaArray (reverse l) TInt
+                     assign' (e:es) l t = do
+                         S(fenv, venv, (store, loc)) <- get
+                         x <- evalExpM e
+                         put $ S (fenv, venv, (M.insert loc x store, (loc + 1)))
+                         case x of
+                           MajaInt i -> assign' es (loc:l) TInt
+                           MajaBool b -> assign' es (loc:l) TBool
+                           _ -> error ("<assignArrAll>: Wrong expression type");
+
 ifelse :: ExpResult -> t -> t -> t
 ifelse e f1 f2 = case e of
                      MajaBool True -> f1
@@ -192,6 +249,9 @@ evalExp e s = execStateT (evalExpM e) s
 
 evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
 evalExpM (EEmpty) = return MajaVoid
+
+evalExpM (EIArr (IArr exp)) = assignArrAll exp 
+
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
                            y <- evalExpM e2
@@ -270,7 +330,10 @@ evalExpM (EFunkpar (FCall f e)) = do
                               execStmts [] = return ()
                               execStmts (s:ss) = execStmtM s >> execStmts ss
                            
-                           
+evalExpM (EArray v e) = do
+                           i <- evalExpM e
+                           getElemAt v i 
+                                                      
 
 evalExpM (EVar v) = getVar v 
 
@@ -300,6 +363,12 @@ execStmtM (SAssign v e) = do
  - execStmtM (SAssignS v vf e) = do
                                  x <- evalExpM e
                                  s <- getStruc-} 
+
+execStmtM (SAssignA v e1 e2) = do
+                                 i <- evalExpM e1
+                                 x <- evalExpM e2
+                                 assignArr v i x 
+
 execStmtM (SBlock b) = execStmtB b
 
 --Decl/DeclArr/DeclVar
@@ -335,5 +404,7 @@ execStmtM (SFunC f) = do
 execDeclM :: (MonadTrans m, MonadState S (m IO)) => Decl -> m IO ()
 execDeclM (DeclV (DVar t v)) = newVar t v
 
---pozostale deklaracje, jak bede miec typy
 execDeclM (DeclF (DFun t v p s e)) = newFun t v p s e 
+
+execDeclM (DeclA (DArr t v e)) = newArr t v e
+

@@ -66,7 +66,7 @@ transExp x = case x of
   EDiv exp1 exp2 -> failure x
   EPreop unaryoperator exp -> failure x
   EFunkpar funccall -> failure x
-  EArray exp1 exp2 -> failure x
+  EArray ident exp -> failure x
   ESelect exp ident -> failure x
   EVar ident -> failure x
   EConst constant -> failure x
