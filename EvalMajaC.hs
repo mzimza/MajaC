@@ -21,7 +21,7 @@ import qualified Data.Map as M
 import Data.Maybe
 
 
-data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid 
+data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid | MajaLoc [Loc] 
                  | MajaArray [Loc] Type | MajaTuple [Loc] | MajaStruct Var (M.Map Var Loc)
  
 type Loc = Int
@@ -71,6 +71,7 @@ instance Show ExpResult where
    show (MajaInt i) = show i
    show (MajaBool b) = show b 
    show MajaVoid = show "MajaVoid"
+   show (MajaLoc l) = show l
    show (MajaArray a t) = (show a) ++ (show t)
    show (MajaTuple a) = show a
    show (MajaStruct v m) = show v ++ show m
@@ -136,6 +137,7 @@ newTup t v = do
                            case t of      
                               TInt -> assign' (loc:l) ts ((M.insert loc (MajaInt 0) store), loc+1)
                               TBool -> assign' (loc:l) ts ((M.insert loc (MajaBool False) store), loc+1)
+                              _ -> fail ("<newTup>: Tuples can only have int or bool inside");
 
 newVar :: MonadState S m => Type -> Var -> m ()
 newVar t v = do
@@ -144,7 +146,12 @@ newVar t v = do
               TInt -> put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc (MajaInt 0) store, (loc + 1)))
               TBool -> put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc (MajaBool False) store, (loc + 1)))
               TTuple l -> newTup l v 
-
+              TStruct (Tag var sdecl) -> put $ S (fenv, (M.insert v loc venv), (M.insert var sdecl senv), (M.insert loc (MajaStruct var M.empty) store, (loc + 1)))
+              TStruct (TagType var) -> do  
+                     let _ = fromMaybe (error $ "<newVar>: Undefined struct type" ++ show var) $ M.lookup var senv
+                     put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc (MajaStruct var M.empty) store, (loc + 1)))
+               
+--TODO tu jednak rozdzielic na typy, wtedy nie bedzie problemu z lokacjami                      
 newVarAssign :: MonadState S m => Type -> Var -> ExpResult -> m ()
 newVarAssign t v e = do
             S(fenv, venv, senv, (store, loc)) <- get
@@ -217,11 +224,9 @@ assignFunParams (Func (d, l, _, _, _, _, venv, senv)) p = assign' d l p venv
             TRef _ -> do
                         case p of
                            EVar var -> do
---                              lift $ putStrLn $ show var
                               loc <- getLoc var
                               assign' ds l ps (M.insert v loc venv)
                            EArray var e -> do
-  --                            lift $ putStrLn $ show var
                               (MajaInt i) <- evalExpM e
                               loc <- getLocAt var $ fromInteger i
                               assign' ds l ps (M.insert v loc venv)
@@ -241,6 +246,7 @@ newArr t v e = do
                               TInt -> assign' (loc:l) (x-1) ((M.insert loc (MajaInt 0) store), loc+1) t
                               TBool -> assign' (loc:l) (x-1) ((M.insert loc (MajaBool False) store), loc+1) t
                             
+{--
 newArrAssign :: MonadState S m => Type -> Var -> ExpResult -> m()
 newArrAssign t v arr@(MajaArray l typ) = 
                      if t == typ then do
@@ -248,6 +254,12 @@ newArrAssign t v arr@(MajaArray l typ) =
                         put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc arr store, (loc + 1)))
                      else --do type checkera
                         error ("<newArrAssign>: Types of array and init list's don't match")
+--}
+
+newArrAssign :: MonadState S m => Type -> Var -> ExpResult -> m()
+newArrAssign t v locs@(MajaLoc l) = do 
+                        S(fenv, venv, senv, (store, loc)) <- get
+                        put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc (MajaArray l t) store, (loc + 1)))
 
 assignArr :: MonadState S m => Var -> ExpResult -> ExpResult -> m ()
 assignArr v (MajaInt i) e = do
@@ -260,7 +272,8 @@ getList :: MonadState S m => ExpResult -> m [Loc]
 getList e = case e of
                (MajaArray l _ ) -> return l
                (MajaTuple l) -> return l
-               
+               (MajaLoc l) -> return l
+
 getElemAt v (MajaInt i) = do
                            var <- getVar v
                            l <- getList var
@@ -279,6 +292,7 @@ assignArrAll e = do
                            MajaInt i -> assign' es (loc:l) TInt
                            MajaBool b -> assign' es (loc:l) TBool
                            _ -> error ("<assignArrAll>: Wrong expression type");
+
 assignTupAll e1 e2 = do
                   assign' (e1:e2) []
                   where
@@ -288,6 +302,21 @@ assignTupAll e1 e2 = do
                          x <- evalExpM e
                          put $ S (fenv, venv, senv, (M.insert loc x store, (loc + 1)))
                          assign' es (loc:l)
+
+
+assignLocs e = do
+                  assign' e []
+                  where
+                     assign' [] l = return $ MajaLoc (reverse l)
+                     assign' (e:es) l = do
+                         S(fenv, venv, senv, (store, loc)) <- get
+                         x <- evalExpM e
+                         put $ S (fenv, venv, senv, (M.insert loc x store, (loc + 1)))
+                         assign' es (loc:l)
+
+locsToTuple (MajaLoc l) = return $ MajaTuple l
+
+locsToArray (MajaLoc l) t = return $ MajaArray l t
 
 ifelse :: ExpResult -> t -> t -> t
 ifelse e f1 f2 = case e of
@@ -299,9 +328,9 @@ evalExp e s = execStateT (evalExpM e) s
 evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
 evalExpM (EEmpty) = return MajaVoid
 
-evalExpM (EIArr (IArr exp)) = assignArrAll exp 
+evalExpM (EIArr (IArr exp)) = assignLocs exp--assignArrAll exp 
 
-evalExpM (EITup (ITup e1 e2)) = assignTupAll e1 e2
+evalExpM (EITup (ITup e1 e2)) = assignLocs (e1:e2) >>= locsToTuple
 
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
@@ -405,10 +434,16 @@ execStmtB (SBl b) = localEnv $ execStmtM' b
                            execStmtM' (s:ss) = execStmtM s >> execStmtM' ss
 
 execStmtM :: (MonadTrans m, MonadState S (m IO)) => Stmt -> m IO ()
+--TODO dodaj rózne przypisywania w zależności od typu zmiennej
+--     zeby lokacje sie nie powielały
 execStmtM (SAssign v e) = do
-                           x <- evalExpM e
+                          -- x <- evalExpM e
                            loc <- getLoc v
-                           assign x loc
+                           val <- getValueFromLoc loc
+                           case val of
+                              (MajaArray _ t) -> evalExpM e >>= (\x -> locsToArray x t) >>= (\x -> assign x loc)
+                              (MajaStruct t _) -> lift $ putStrLn "struct assign all"
+                              _ -> evalExpM e >>= (\x -> assign x loc)  
 
 {-TODO
  - execStmtM (SAssignS v vf e) = do
@@ -424,7 +459,10 @@ execStmtM (SBlock b) = execStmtB b
 
 --Decl/DeclArr/DeclVar
 
-execStmtM (SDeclV (DVar t v) e) = evalExpM e >>= newVarAssign t v
+execStmtM (SDeclV (DVar t v) e) = case t of
+--                                    TStruct s -> 
+                                  
+                                    _ -> evalExpM e >>= newVarAssign t v
 
 execStmtM (SDeclF d) = execDeclM d
 
@@ -462,3 +500,5 @@ execDeclM (DeclA (DArr t v e)) = newArr t v e
 
 --TODO typechecker czy dlugosc tablicy == dlugosc listy inicjalizujacej
 execDeclM (DeclA (DArrI t v e)) = evalExpM (EIArr e) >>= newArrAssign t v 
+
+
