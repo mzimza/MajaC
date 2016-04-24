@@ -29,6 +29,7 @@ transDeclFun x = case x of
 transDeclArr :: DeclArr -> Result
 transDeclArr x = case x of
   DArr type_ ident exp -> failure x
+  DArrI type_ ident arrayinit -> failure x
 transStmt :: Stmt -> Result
 transStmt x = case x of
   SAssign ident exp -> failure x
@@ -36,7 +37,6 @@ transStmt x = case x of
   SAssignA ident exp1 exp2 -> failure x
   SBlock block -> failure x
   SDeclF decl -> failure x
-  SDeclA declarr exp -> failure x
   SDeclV declvar exp -> failure x
   SIf exp block -> failure x
   SIfElse exp block1 block2 -> failure x

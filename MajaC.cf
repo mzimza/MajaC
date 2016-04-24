@@ -19,13 +19,14 @@ DeclA. Decl ::= DeclArr ";";
 DVar. DeclVar ::= Type Ident;
 DFun. DeclFun ::= Type Ident "(" [DeclVar] ")" "{"[Stmt] "return" Exp ";" "}"; 
 DArr. DeclArr ::= Type Ident "[" Exp "]";
+DArrI. DeclArr ::= Type Ident "[""]" "=" ArrayInit;
 
 SAssign. Stmt ::= Ident "=" Exp ";";
 SAssignS. Stmt ::= Ident "." Ident "=" Exp ";";
 SAssignA. Stmt ::= Ident "[" Exp "]" "=" Exp ";";
 SBlock. Stmt ::= Block;
 SDeclF. Stmt ::= Decl;
-SDeclA. Stmt ::= DeclArr "=" Exp ";";
+--SDeclA. Stmt ::= DeclArr "=" Exp ";";
 SDeclV. Stmt ::= DeclVar "=" Exp ";";
 SIf. Stmt ::= "if" Exp Block;
 SIfElse. Stmt ::= "if" Exp Block "else" Block;
@@ -35,7 +36,7 @@ SPrint. Stmt ::= "print" "(" Exp ")" ";";
 SBl. Block ::= "{" [Stmt] "}";
 SFunC. Stmt ::= FuncCall ";";
 
-EEmpty. Exp ::= " ";
+EEmpty. Exp ::= ";";
 EIArr. Exp ::= ArrayInit;
 EITup. Exp ::= TupleInit;
 EOr. Exp1 ::= Exp1 "||" Exp2;

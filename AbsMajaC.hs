@@ -20,7 +20,7 @@ data DeclVar = DVar Type Ident
 data DeclFun = DFun Type Ident [DeclVar] [Stmt] Exp
   deriving (Eq, Ord, Show, Read)
 
-data DeclArr = DArr Type Ident Exp
+data DeclArr = DArr Type Ident Exp | DArrI Type Ident ArrayInit
   deriving (Eq, Ord, Show, Read)
 
 data Stmt
@@ -29,7 +29,6 @@ data Stmt
     | SAssignA Ident Exp Exp
     | SBlock Block
     | SDeclF Decl
-    | SDeclA DeclArr Exp
     | SDeclV DeclVar Exp
     | SIf Exp Block
     | SIfElse Exp Block Block

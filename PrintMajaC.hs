@@ -107,6 +107,7 @@ instance Print DeclFun where
 instance Print DeclArr where
   prt i e = case e of
     DArr type_ id exp -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, doc (showString "["), prt 0 exp, doc (showString "]")])
+    DArrI type_ id arrayinit -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, doc (showString "["), doc (showString "]"), doc (showString "="), prt 0 arrayinit])
 
 instance Print Stmt where
   prt i e = case e of
@@ -115,7 +116,6 @@ instance Print Stmt where
     SAssignA id exp1 exp2 -> prPrec i 0 (concatD [prt 0 id, doc (showString "["), prt 0 exp1, doc (showString "]"), doc (showString "="), prt 0 exp2, doc (showString ";")])
     SBlock block -> prPrec i 0 (concatD [prt 0 block])
     SDeclF decl -> prPrec i 0 (concatD [prt 0 decl])
-    SDeclA declarr exp -> prPrec i 0 (concatD [prt 0 declarr, doc (showString "="), prt 0 exp, doc (showString ";")])
     SDeclV declvar exp -> prPrec i 0 (concatD [prt 0 declvar, doc (showString "="), prt 0 exp, doc (showString ";")])
     SIf exp block -> prPrec i 0 (concatD [doc (showString "if"), prt 0 exp, prt 0 block])
     SIfElse exp block1 block2 -> prPrec i 0 (concatD [doc (showString "if"), prt 0 exp, prt 0 block1, doc (showString "else"), prt 0 block2])
@@ -131,7 +131,7 @@ instance Print Block where
 
 instance Print Exp where
   prt i e = case e of
-    EEmpty -> prPrec i 0 (concatD [doc (showString " ")])
+    EEmpty -> prPrec i 0 (concatD [doc (showString ";")])
     EIArr arrayinit -> prPrec i 0 (concatD [prt 0 arrayinit])
     EITup tupleinit -> prPrec i 0 (concatD [prt 0 tupleinit])
     EOr exp1 exp2 -> prPrec i 1 (concatD [prt 1 exp1, doc (showString "||"), prt 2 exp2])

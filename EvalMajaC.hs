@@ -5,7 +5,9 @@
 --TODO: type checker -> should check if variable is void or not
 --                   -> if void in function then return ; nothing else
 --      check if there isn't a variable like this already, when declaring
-
+-- przy samym deklarowaniu tablicy int a[3]; i tupla (int, bool)d; nie dawac lokacji
+-- narazie moze tak byc, do zmiany później
+--
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -66,6 +68,7 @@ instance Show ExpResult where
    show (MajaBool b) = show b 
    show MajaVoid = show "MajaVoid"
    show (MajaArray a t) = (show a) ++ (show t)
+   show (MajaTuple a) = show a
 
 execProg :: Program -> IO ()
 execProg (Prog p) = execProg' p initS 
@@ -115,20 +118,35 @@ assign e loc = do
                   Just expr -> put $ S (fenv, venv, (M.insert loc e store, l))
                   Nothing -> error ("Location unused")
 
+--newTup :: MonadState S m => [Type] -> Var -> m ()
+newTup t v = do
+                S(fenv, venv, (store, loc)) <- get
+                (tup, (store', l)) <- assign' [] t (store, (loc+1))
+                put $ S (fenv, (M.insert v loc venv), (M.insert loc tup store', l))
+                  where
+                     assign' l [] (store, loc) = return (MajaTuple $ reverse l , (store, loc))
+                     assign' l (t:ts) (store, loc) =
+                        do
+                           case t of      
+                              TInt -> assign' (loc:l) ts ((M.insert loc (MajaInt 0) store), loc+1)
+                              TBool -> assign' (loc:l) ts ((M.insert loc (MajaBool False) store), loc+1)
+
 newVar :: MonadState S m => Type -> Var -> m ()
 newVar t v = do
             S(fenv, venv, (store, loc)) <- get
             case t of
               TInt -> put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaInt 0) store, (loc + 1)))
               TBool -> put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaBool False) store, (loc + 1)))
+              TTuple l -> newTup l v 
 
 newVarAssign :: MonadState S m => Type -> Var -> ExpResult -> m ()
 newVarAssign t v e = do
             S(fenv, venv, (store, loc)) <- get
-            case t of
+            put $ S (fenv, (M.insert v loc venv), (M.insert loc e store, (loc + 1)))
+            {--case t of
               TInt -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e store, (loc + 1)))
               TBool -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e store, (loc + 1)))
-
+              TTuple -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e --}
 localEnv :: MonadState S m => m t -> m ()
 localEnv f = do
                S (fenv, venv, store) <- get
@@ -153,10 +171,10 @@ assignLocParams d = assign' d []
                               S(fenv, venv, (store, loc)) <- get
                               case t of
                                  TInt -> do
-                                          put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaInt 0) store, (loc + 1)))  
+                                          put $ S (fenv, venv, (M.insert loc (MajaInt 0) store, (loc + 1)))  
                                           assign' ds $ loc : l
                                  TBool -> do
-                                           put $ S (fenv, (M.insert v loc venv), (M.insert loc (MajaBool False) store, (loc + 1)))
+                                           put $ S (fenv, venv, (M.insert loc (MajaBool False) store, (loc + 1)))
                                            assign' ds $ loc : l
                                  
                                  _ -> assign' ds l
@@ -183,12 +201,12 @@ assignFunParams (Func (d, l, _, _, _, _, venv)) p = assign' d l p venv
                      x <- evalExpM p
                      let (l':ls) = l
                      assign x l'
-                     assign' ds ls ps venv
+                     assign' ds ls ps (M.insert v l' venv)
             TBool -> do 
                         x <- evalExpM p
                         let (l':ls) = l
                         assign x l'
-                        assign' ds ls ps venv
+                        assign' ds ls ps (M.insert v l' venv)
             TRef _ -> do
                         case p of
                            EVar var -> do
@@ -216,14 +234,30 @@ newArr t v e = do
                               TInt -> assign' (loc:l) (x-1) ((M.insert loc (MajaInt 0) store), loc+1) t
                               TBool -> assign' (loc:l) (x-1) ((M.insert loc (MajaBool False) store), loc+1) t
                             
+newArrAssign :: MonadState S m => Type -> Var -> ExpResult -> m()
+newArrAssign t v arr@(MajaArray l typ) = 
+                     if t == typ then do
+                        S(fenv, venv, (store, loc)) <- get
+                        put $ S (fenv, (M.insert v loc venv), (M.insert loc arr store, (loc + 1)))
+                     else --do type checkera
+                        error ("<newArrAssign>: Types of array and init list's don't match")
+
 assignArr :: MonadState S m => Var -> ExpResult -> ExpResult -> m ()
 assignArr v (MajaInt i) e = do
-                     (MajaArray l _) <- getVar v
+                     var <- getVar v
+                     l <- getList var
                      if length l <= fromInteger i then error ("<assignArr>: Index out of range")
                      else assign e (l !! fromInteger i)
 
+getList :: MonadState S m => ExpResult -> m [Loc]
+getList e = case e of
+               (MajaArray l _ ) -> return l
+               (MajaTuple l) -> return l
+               
+
 getElemAt v (MajaInt i) = do
-                           (MajaArray l _) <- getVar v
+                           var <- getVar v
+                           l <- getList var
                            if length l <= fromInteger i then error ("<getElemAt>: Index out of range")
                            else getValueFromLoc (l !! fromInteger i)
 
@@ -239,6 +273,15 @@ assignArrAll e = do
                            MajaInt i -> assign' es (loc:l) TInt
                            MajaBool b -> assign' es (loc:l) TBool
                            _ -> error ("<assignArrAll>: Wrong expression type");
+assignTupAll e1 e2 = do
+                  assign' (e1:e2) []
+                  where
+                     assign' [] l = return $ MajaTuple (reverse l)
+                     assign' (e:es) l = do
+                         S(fenv, venv, (store, loc)) <- get
+                         x <- evalExpM e
+                         put $ S (fenv, venv, (M.insert loc x store, (loc + 1)))
+                         assign' es (loc:l)
 
 ifelse :: ExpResult -> t -> t -> t
 ifelse e f1 f2 = case e of
@@ -251,6 +294,8 @@ evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
 evalExpM (EEmpty) = return MajaVoid
 
 evalExpM (EIArr (IArr exp)) = assignArrAll exp 
+
+evalExpM (EITup (ITup e1 e2)) = assignTupAll e1 e2
 
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
@@ -372,6 +417,7 @@ execStmtM (SAssignA v e1 e2) = do
 execStmtM (SBlock b) = execStmtB b
 
 --Decl/DeclArr/DeclVar
+
 execStmtM (SDeclV (DVar t v) e) = evalExpM e >>= newVarAssign t v
 
 execStmtM (SDeclF d) = execDeclM d
@@ -408,3 +454,5 @@ execDeclM (DeclF (DFun t v p s e)) = newFun t v p s e
 
 execDeclM (DeclA (DArr t v e)) = newArr t v e
 
+--TODO typechecker czy dlugosc tablicy == dlugosc listy inicjalizujacej
+execDeclM (DeclA (DArrI t v e)) = evalExpM (EIArr e) >>= newArrAssign t v 
