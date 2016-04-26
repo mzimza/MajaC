@@ -11,7 +11,8 @@ newtype Ident = Ident String deriving (Eq, Ord, Show, Read)
 data Program = Prog [Stmt]
   deriving (Eq, Ord, Show, Read)
 
-data Decl = DeclV DeclVar | DeclF DeclFun | DeclA DeclArr
+data Decl
+    = DeclV DeclVar | DeclF DeclFun | DeclA DeclArr | DeclS Struct_spec
   deriving (Eq, Ord, Show, Read)
 
 data DeclVar = DVar Type Ident
@@ -20,7 +21,10 @@ data DeclVar = DVar Type Ident
 data DeclFun = DFun Type Ident [DeclVar] [Stmt] Exp
   deriving (Eq, Ord, Show, Read)
 
-data DeclArr = DArr Type Ident Exp | DArrI Type Ident ArrayInit
+data ArrM = MulArr Exp
+  deriving (Eq, Ord, Show, Read)
+
+data DeclArr = DArr Type Ident [ArrM] | DArrI Type Ident ArrayInit
   deriving (Eq, Ord, Show, Read)
 
 data Stmt
@@ -59,7 +63,7 @@ data Exp
     | EDiv Exp Exp
     | EPreop Unary_operator Exp
     | EFunkpar FuncCall
-    | EArray Ident Exp
+    | EArray Exp Exp
     | ESelect Exp Ident
     | EVar Ident
     | EConst Constant
@@ -87,11 +91,12 @@ data Type
     | TTuple [Type]
     | TRef Type
     | TVoid
+    | TArray Type
   deriving (Eq, Ord, Show, Read)
 
 data Struct_spec = Tag Ident [Struct_dec] | TagType Ident
   deriving (Eq, Ord, Show, Read)
 
-data Struct_dec = StrField Type Ident
+data Struct_dec = StrField Type Ident | StrFieldArr Type Ident ArrM
   deriving (Eq, Ord, Show, Read)
 

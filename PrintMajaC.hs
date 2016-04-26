@@ -93,6 +93,7 @@ instance Print Decl where
     DeclV declvar -> prPrec i 0 (concatD [prt 0 declvar, doc (showString ";")])
     DeclF declfun -> prPrec i 0 (concatD [prt 0 declfun])
     DeclA declarr -> prPrec i 0 (concatD [prt 0 declarr, doc (showString ";")])
+    DeclS structspec -> prPrec i 0 (concatD [prt 0 structspec, doc (showString ";")])
 
 instance Print DeclVar where
   prt i e = case e of
@@ -104,9 +105,14 @@ instance Print DeclFun where
   prt i e = case e of
     DFun type_ id declvars stmts exp -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, doc (showString "("), prt 0 declvars, doc (showString ")"), doc (showString "{"), prt 0 stmts, doc (showString "return"), prt 0 exp, doc (showString ";"), doc (showString "}")])
 
+instance Print ArrM where
+  prt i e = case e of
+    MulArr exp -> prPrec i 0 (concatD [doc (showString "["), prt 0 exp, doc (showString "]")])
+  prtList _ [x] = (concatD [prt 0 x])
+  prtList _ (x:xs) = (concatD [prt 0 x, prt 0 xs])
 instance Print DeclArr where
   prt i e = case e of
-    DArr type_ id exp -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, doc (showString "["), prt 0 exp, doc (showString "]")])
+    DArr type_ id arrms -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, prt 0 arrms])
     DArrI type_ id arrayinit -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, doc (showString "["), doc (showString "]"), doc (showString "="), prt 0 arrayinit])
 
 instance Print Stmt where
@@ -148,7 +154,7 @@ instance Print Exp where
     EDiv exp1 exp2 -> prPrec i 6 (concatD [prt 6 exp1, doc (showString "/"), prt 7 exp2])
     EPreop unaryoperator exp -> prPrec i 7 (concatD [prt 0 unaryoperator, prt 8 exp])
     EFunkpar funccall -> prPrec i 8 (concatD [prt 0 funccall])
-    EArray id exp -> prPrec i 8 (concatD [prt 0 id, doc (showString "["), prt 0 exp, doc (showString "]")])
+    EArray exp1 exp2 -> prPrec i 8 (concatD [prt 8 exp1, doc (showString "["), prt 0 exp2, doc (showString "]")])
     ESelect exp id -> prPrec i 8 (concatD [prt 8 exp, doc (showString "."), prt 0 id])
     EVar id -> prPrec i 9 (concatD [prt 0 id])
     EConst constant -> prPrec i 9 (concatD [prt 0 constant])
@@ -188,6 +194,7 @@ instance Print Type where
     TTuple types -> prPrec i 0 (concatD [doc (showString "("), prt 0 types, doc (showString ")")])
     TRef type_ -> prPrec i 0 (concatD [prt 0 type_, doc (showString "&")])
     TVoid -> prPrec i 0 (concatD [doc (showString "void")])
+    TArray type_ -> prPrec i 0 (concatD [doc (showString "["), prt 0 type_, doc (showString "]")])
   prtList _ [x] = (concatD [prt 0 x])
   prtList _ (x:xs) = (concatD [prt 0 x, doc (showString ","), prt 0 xs])
 instance Print Struct_spec where
@@ -198,6 +205,7 @@ instance Print Struct_spec where
 instance Print Struct_dec where
   prt i e = case e of
     StrField type_ id -> prPrec i 0 (concatD [prt 0 type_, prt 0 id])
+    StrFieldArr type_ id arrm -> prPrec i 0 (concatD [prt 0 type_, prt 0 id, prt 0 arrm])
   prtList _ [] = (concatD [])
   prtList _ [x] = (concatD [prt 0 x])
   prtList _ (x:xs) = (concatD [prt 0 x, doc (showString ";"), prt 0 xs])

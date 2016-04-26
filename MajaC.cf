@@ -11,14 +11,19 @@ Prog. Program ::= [Stmt];
 separator nonempty Ident ",";
 separator Stmt "";
 separator DeclVar ",";
+separator nonempty ArrM "";
 
 DeclV. Decl ::= DeclVar ";";
 DeclF. Decl ::= DeclFun;
 DeclA. Decl ::= DeclArr ";";
+DeclS. Decl ::= Struct_spec ";";
 
 DVar. DeclVar ::= Type Ident;
 DFun. DeclFun ::= Type Ident "(" [DeclVar] ")" "{"[Stmt] "return" Exp ";" "}"; 
-DArr. DeclArr ::= Type Ident "[" Exp "]";
+
+MulArr. ArrM ::= "[" Exp "]";
+
+DArr. DeclArr ::= Type Ident [ArrM];
 DArrI. DeclArr ::= Type Ident "[""]" "=" ArrayInit;
 
 SAssign. Stmt ::= Ident "=" Exp ";";
@@ -35,6 +40,7 @@ SWhile. Stmt ::= "while" Exp Block;
 SPrint. Stmt ::= "print" "(" Exp ")" ";";
 SBl. Block ::= "{" [Stmt] "}";
 SFunC. Stmt ::= FuncCall ";";
+
 
 EEmpty. Exp ::= ";";
 EIArr. Exp ::= ArrayInit;
@@ -53,7 +59,8 @@ EMul. Exp6 ::= Exp6 "*" Exp7;
 EDiv. Exp6 ::= Exp6 "/" Exp7;
 EPreop. Exp7 ::= Unary_operator Exp8;
 EFunkpar. Exp8 ::= FuncCall;
-EArray. Exp8 ::= Ident "[" Exp "]";
+--moze gdyby zmienic na exp nizej to by sie dalo tab[][]
+EArray. Exp8 ::= Exp8 "[" Exp "]";
 ESelect. Exp8 ::= Exp8 "." Ident;
 EVar. Exp9 ::= Ident;
 EConst. Exp9 ::= Constant;
@@ -81,6 +88,7 @@ TStruct. Type ::= Struct_spec;
 TTuple. Type ::= "(" [Type] ")";
 TRef. Type ::= Type "&";
 TVoid. Type ::= "void";
+TArray. Type ::= "["Type"]";
 
 separator nonempty Type ",";
 
@@ -89,3 +97,4 @@ TagType. Struct_spec ::= "struct" Ident;
 
 separator Struct_dec ";";
 StrField. Struct_dec ::= Type Ident;
+StrFieldArr. Struct_dec ::= Type Ident ArrM;

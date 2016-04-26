@@ -20,15 +20,19 @@ transDecl x = case x of
   DeclV declvar -> failure x
   DeclF declfun -> failure x
   DeclA declarr -> failure x
+  DeclS structspec -> failure x
 transDeclVar :: DeclVar -> Result
 transDeclVar x = case x of
   DVar type_ ident -> failure x
 transDeclFun :: DeclFun -> Result
 transDeclFun x = case x of
   DFun type_ ident declvars stmts exp -> failure x
+transArrM :: ArrM -> Result
+transArrM x = case x of
+  MulArr exp -> failure x
 transDeclArr :: DeclArr -> Result
 transDeclArr x = case x of
-  DArr type_ ident exp -> failure x
+  DArr type_ ident arrms -> failure x
   DArrI type_ ident arrayinit -> failure x
 transStmt :: Stmt -> Result
 transStmt x = case x of
@@ -66,7 +70,7 @@ transExp x = case x of
   EDiv exp1 exp2 -> failure x
   EPreop unaryoperator exp -> failure x
   EFunkpar funccall -> failure x
-  EArray ident exp -> failure x
+  EArray exp1 exp2 -> failure x
   ESelect exp ident -> failure x
   EVar ident -> failure x
   EConst constant -> failure x
@@ -98,6 +102,7 @@ transType x = case x of
   TTuple types -> failure x
   TRef type_ -> failure x
   TVoid -> failure x
+  TArray type_ -> failure x
 transStruct_spec :: Struct_spec -> Result
 transStruct_spec x = case x of
   Tag ident structdecs -> failure x
@@ -105,4 +110,5 @@ transStruct_spec x = case x of
 transStruct_dec :: Struct_dec -> Result
 transStruct_dec x = case x of
   StrField type_ ident -> failure x
+  StrFieldArr type_ ident arrm -> failure x
 
