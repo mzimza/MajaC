@@ -24,7 +24,7 @@ DFun. DeclFun ::= Type Ident "(" [DeclVar] ")" "{"[Stmt] "return" Exp ";" "}";
 MulArr. ArrM ::= "[" Exp "]";
 
 DArr. DeclArr ::= Type Ident [ArrM];
-DArrI. DeclArr ::= Type Ident "[""]" "=" ArrayInit;
+DArrI. DeclArr ::= Type Ident "[" "]" "=" ArrayInit;
 
 SAssign. Stmt ::= Ident "=" Exp ";";
 SAssignS. Stmt ::= Ident "." Ident "=" Exp ";";
