@@ -29,6 +29,7 @@ DArrI. DeclArr ::= Type Ident "[" "]" "=" ArrayInit;
 SAssign. Stmt ::= Ident "=" Exp ";";
 SAssignS. Stmt ::= Ident "." Ident "=" Exp ";";
 SAssignA. Stmt ::= Ident "[" Exp "]" "=" Exp ";";
+SAssignT. Stmt ::= Tuple;
 SBlock. Stmt ::= Block;
 SDeclF. Stmt ::= Decl;
 --SDeclA. Stmt ::= DeclArr "=" Exp ";";
@@ -41,6 +42,8 @@ SPrint. Stmt ::= "print" "(" Exp ")" ";";
 SBl. Block ::= "{" [Stmt] "}";
 SFunC. Stmt ::= FuncCall ";";
 
+TAssignN. Tuple ::= "(" DeclVar "," [DeclVar] ")" "=" Exp ";";
+TAssign. Tuple ::= "(" Ident "," [Ident] ")" "=" Exp ";";
 
 EEmpty. Exp ::= ";";
 EIArr. Exp ::= ArrayInit;

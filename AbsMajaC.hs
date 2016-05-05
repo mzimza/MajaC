@@ -31,6 +31,7 @@ data Stmt
     = SAssign Ident Exp
     | SAssignS Ident Ident Exp
     | SAssignA Ident Exp Exp
+    | SAssignT Tuple
     | SBlock Block
     | SDeclF Decl
     | SDeclV DeclVar Exp
@@ -43,6 +44,10 @@ data Stmt
   deriving (Eq, Ord, Show, Read)
 
 data Block = SBl [Stmt]
+  deriving (Eq, Ord, Show, Read)
+
+data Tuple
+    = TAssignN DeclVar [DeclVar] Exp | TAssign Ident [Ident] Exp
   deriving (Eq, Ord, Show, Read)
 
 data Exp

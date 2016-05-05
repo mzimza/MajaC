@@ -39,6 +39,7 @@ transStmt x = case x of
   SAssign ident exp -> failure x
   SAssignS ident1 ident2 exp -> failure x
   SAssignA ident exp1 exp2 -> failure x
+  SAssignT tuple -> failure x
   SBlock block -> failure x
   SDeclF decl -> failure x
   SDeclV declvar exp -> failure x
@@ -51,6 +52,10 @@ transStmt x = case x of
 transBlock :: Block -> Result
 transBlock x = case x of
   SBl stmts -> failure x
+transTuple :: Tuple -> Result
+transTuple x = case x of
+  TAssignN declvar declvars exp -> failure x
+  TAssign ident idents exp -> failure x
 transExp :: Exp -> Result
 transExp x = case x of
   EEmpty -> failure x

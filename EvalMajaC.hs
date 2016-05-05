@@ -31,7 +31,7 @@ type Store = (M.Map Loc ExpResult, Loc)
 type VEnv = M.Map Var Loc
 type FEnv = M.Map Var Func
 type SEnv = M.Map Var [Struct_dec]
-data Func = Func ([DeclVar], [Loc], [Stmt], Exp, Type, FEnv, VEnv, SEnv) deriving (Eq, Ord, Show)
+data Func = Func ([DeclVar], [Stmt], Exp, Type, FEnv, VEnv, SEnv) deriving (Eq, Ord, Show)
 
 data S = S (FEnv, VEnv, SEnv, Store) deriving (Eq, Ord)  
 
@@ -141,7 +141,7 @@ newTup t v = do
                            case t of      
                               TInt -> assign' (loc:l) ts ((M.insert loc (MajaInt 0) store), loc+1)
                               TBool -> assign' (loc:l) ts ((M.insert loc (MajaBool False) store), loc+1)
-                              _ -> fail ("<newTup>: Tuples can only have int or bool inside");
+        --                      _ -> fail ("<newTup>: Tuples can only have int or bool inside");
 
 newVar :: MonadState S m => Type -> Var -> m ()
 newVar t v = do
@@ -155,17 +155,12 @@ newVar t v = do
                      let _ = fromMaybe (error $ "<newVar>: Undefined struct type" ++ show var) $ M.lookup var senv
                      put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc (MajaStruct var M.empty) store, (loc + 1)))
                
---TODO tu jednak rozdzielic na typy, wtedy nie bedzie problemu z lokacjami                      
 newVarAssign :: MonadState S m => Type -> Var -> ExpResult -> m ()
 newVarAssign t v e = do
             S(fenv, venv, senv, (store, loc)) <- get
             put $ S (fenv, (M.insert v loc venv), senv, (M.insert loc e store, (loc + 1)))
-            {--case t of
-              TInt -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e store, (loc + 1)))
-              TBool -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e store, (loc + 1)))
-              TTuple -> put $ S (fenv, (M.insert v loc venv), (M.insert loc e --}
 
---newStructAssign :: MonadState S m => Struct_spec -> Var -> ExpResult -> m ()
+newStructAssign :: (MonadTrans m, MonadState S (m IO)) => Struct_spec -> Var -> ExpResult -> m IO ()
 newStructAssign (Tag stype sdecl) var e = do
                S(fenv, venv, senv, (store, loc)) <- get
                put $ S (fenv, venv, (M.insert stype sdecl senv), (store, loc))
@@ -197,6 +192,15 @@ copyExpResult nloc org = case org of
                         let e = MajaArray locs t
                         S(fenv, venv, senv, (store, loc)) <- get
                         put $ S (fenv, venv, senv, (M.insert nloc e store, loc))
+                     (MajaTuple l) -> do
+                        S (fenv, venv, senv, (store, loc)) <- get
+                        let locs = [loc..(loc + length l - 1)]
+                        put $ S (fenv, venv, senv, (store, (loc + length l)))
+                        let vl = zip l locs
+                        mapM copyArrayElement vl
+                        let e = MajaTuple locs
+                        S(fenv, venv, senv, (store, loc)) <- get
+                        put $ S (fenv, venv, senv, (M.insert nloc e store, loc))
                      e -> do 
                         S(fenv, venv, senv, (store, loc)) <- get
                         put $ S (fenv, venv, senv, (M.insert nloc e store, loc))
@@ -205,16 +209,7 @@ copyExpResult nloc org = case org of
                            e <- getValueFromLoc value
                            copyExpResult loc e
                         copyArrayElement (value, loc) = getValueFromLoc value  >>= copyExpResult loc
-                           {--case e of
-                              (MajaStruct var m) -> do
-                                 S(fenv, venv, senv, (store, loc)) <- get
-                                 put $ S (fenv, venv, senv, (M.insert loc e store, (loc + 1)))
-                                 (loc:locs)
-                              _ -> do 
-                                 S(fenv, venv, senv, (store, loc)) <- get
-                                 put $ S (fenv, venv, senv, (M.insert loc e store, (loc + 1)))
-                                 (loc:locs)
---}
+
 localEnv :: MonadState S m => m t -> m ()
 localEnv f = do
                S (fenv, venv, senv, store) <- get
@@ -231,27 +226,39 @@ localEnvF f fenv venv senv = do
                            put $ S (fenv', venv', senv', store')     
                            return exec
 
+{--
 assignLocParams :: MonadState S m => [DeclVar] -> m [Loc]
 assignLocParams d = assign' d []
-                    where
-                        assign' [] l = return $ reverse l
-                        assign' ((DVar t v):ds) l = do
-                              S(fenv, venv, senv, (store, loc)) <- get
-                              case t of
-                                 TInt -> do
-                                          put $ S (fenv, venv, senv, (M.insert loc (MajaInt 0) store, (loc + 1)))  
-                                          assign' ds $ loc : l
-                                 TBool -> do
-                                           put $ S (fenv, venv, senv, (M.insert loc (MajaBool False) store, (loc + 1)))
-                                           assign' ds $ loc : l
-                                 
-                                 _ -> assign' ds l
+  where
+      assign' [] l = return $ reverse l
+      assign' ((DVar t v):ds) l = do
+            S(fenv, venv, senv, (store, loc)) <- get
+            case t of
+               TInt -> do
+                        put $ S (fenv, venv, senv, (M.insert loc (MajaInt 0) store, (loc + 1)))  
+                        assign' ds $ loc : l
+               TBool -> do
+                         put $ S (fenv, venv, senv, (M.insert loc (MajaBool False) store, (loc + 1)))
+                         assign' ds $ loc : l
+               
+               TStruct (TagType var) -> do
+                         put $ S (fenv, venv, senv, (M.insert loc (MajaStruct var M.empty) store, (loc + 1)))
+                         assign' ds $ loc : l
+               TArray typ -> do
+                  put $ S (fenv, venv, senv, (M.insert loc (MajaArray [] typ) store, (loc + 1)))
+                  assign' ds $ loc : l
+               TTuple typ -> do
+                  put $ S (fenv, venv, senv, (M.insert loc (MajaTuple []) store, (loc + 1)))
+                  assign' ds $ loc : l
+               _ -> assign' ds l
                               
+--}
+
 newFun :: MonadState S m => Type -> Var -> [DeclVar] -> [Stmt] -> Exp -> m()
 newFun t v d s e = do
-                  l <- assignLocParams d
+--                  l <- assignLocParams d
                   S(fenv, venv, senv, (store, loc)) <- get
-                  let f = fix (\f' -> (Func (d, l, s, e, t, (M.insert v f' fenv), venv, senv)))
+                  let f = fix (\f' -> (Func (d, s, e, t, (M.insert v f' fenv), venv, senv)))
                   put $ S (M.insert v f fenv, venv, senv, (store, loc))  
 
 getFun :: MonadState S m => Var -> m Func
@@ -259,45 +266,53 @@ getFun f = do
             S (fenv, _, _, _) <- get
             return $ fromMaybe (error "<getFun>: Undefined variable") $ M.lookup f fenv 
 
---TODO structs as parameters
+assignExpToNewLoc :: MonadState S m => m ExpResult -> m Loc
+assignExpToNewLoc exp = do
+   x <- exp
+   S (fenv, venv, senv, (store, l)) <- get
+   copyExpResult l x
+   put $ S (fenv, venv, senv, (store, (l + 1)))
+   return l
+
 assignFunParams :: (MonadTrans m, MonadState S (m IO)) => Func -> [Exp] -> m IO VEnv 
-assignFunParams (Func (d, l, _, _, _, _, venv, senv)) p = assign' d l p venv
+assignFunParams (Func (d, _, _, _, _, venv, senv)) p = assign' d p venv
    where
-      assign' [] _ _ venv = return venv
-      assign' ((DVar t v):ds) l (p:ps) venv = do
+      assign' [] _ venv = return venv
+      assign' ((DVar t v):ds) (p:ps) venv = do
          case t of
             TInt -> do
-               x <- evalExpM p
-               let (l':ls) = l
-               assign x l'
-               assign' ds ls ps (M.insert v l' venv)
+               l <- assignExpToNewLoc $ evalExpM p
+               assign' ds ps (M.insert v l venv)
             TBool -> do 
-               x <- evalExpM p
-               let (l':ls) = l
-               assign x l'
-               assign' ds ls ps (M.insert v l' venv)
+--               x <- evalExpM p
+--               let (l':ls) = l
+--               assign x l'
+               l <- assignExpToNewLoc $ evalExpM p
+               assign' ds ps (M.insert v l venv)
+--               assign' ds ls ps (M.insert v l' venv)
             TStruct (TagType var) -> do
-               x <- evalExpM p
-               let (l':ls) = l
-               copyExpResult l' x
-               assign' ds ls ps (M.insert v l' venv)
+               l <- assignExpToNewLoc $ evalExpM p
+               assign' ds ps (M.insert v l venv)
+            TArray typ -> do
+               l <- assignExpToNewLoc $ evalExpM p
+               assign' ds ps (M.insert v l venv)
+            TTuple typ -> do
+               l <- assignExpToNewLoc $ evalExpM p
+               assign' ds ps (M.insert v l venv)
             TRef _ -> do
                case p of
                   EVar var -> do
                      loc <- getLoc var
-                     assign' ds l ps (M.insert v loc venv)
+                     assign' ds ps (M.insert v loc venv)
                   EArray e1 e2 -> do
                      (MajaInt i) <- evalExpM e2
                      arr <- evalExpM e1
                      loc <- getElemLocAt arr $ fromInteger i  
-                     --get loc of the specified item in array
-                    -- loc <- getLocAt var $ fromInteger i
-                     assign' ds l ps (M.insert v loc venv)
+                     assign' ds ps (M.insert v loc venv)
                   ESelect e var -> do
-                     --get loc of the specified part of struct
                      (MajaStruct tag m) <- evalExpM e
                      let (loc, _) = fromMaybe (error "<struct in fun>") $ M.lookup var m
-                     assign' ds l ps (M.insert v loc venv)  
+                     assign' ds ps (M.insert v loc venv)  
                   _ -> error ("<assignFunParams> Wrong usage of reference") 
 
 
@@ -355,7 +370,6 @@ getList e = case e of
 
 getElemAt :: MonadState S m => ExpResult -> ExpResult -> m ExpResult
 getElemAt var (MajaInt i) = do
-             --              var <- getVar v
                            l <- getList var
                            if length l <= fromInteger i then error ("<getElemAt>: Index out of range")
                            else getValueFromLoc (l !! fromInteger i)
@@ -365,32 +379,34 @@ getElemLocAt e i = do
          l <- getList e
          if length l <= i then error ("<getElemAt>: Index out of range")
          else return (l !! i)
-{--
-assignArrAll e = do
-                  assign' e [] TVoid
-                  where
-                     assign' [] l t = return $ MajaArray (reverse l) TInt
-                     assign' (e:es) l t = do
-                         S(fenv, venv, senv, (store, loc)) <- get
-                         x <- evalExpM e
-                         put $ S (fenv, venv, senv, (M.insert loc x store, (loc + 1)))
-                         case x of
-                           MajaInt i -> assign' es (loc:l) TInt
-                           MajaBool b -> assign' es (loc:l) TBool
-                           _ -> error ("<assignArrAll>: Wrong expression type");
---}
 
-assignTupAll :: (MonadTrans m, MonadState S (m IO)) => Exp -> [Exp] -> m IO ExpResult
-assignTupAll e1 e2 = do
-                  assign' (e1:e2) []
-                  where
-                     assign' [] l = return $ MajaTuple (reverse l)
-                     assign' (e:es) l = do
-                         x <- evalExpM e
-                         S(fenv, venv, senv, (store, loc)) <- get
-                         put $ S (fenv, venv, senv, (M.insert loc x store, (loc + 1)))
-                         assign' es (loc:l)
+newVarsFromTuple :: (MonadTrans m, MonadState S (m IO)) => [DeclVar] -> Exp -> m IO ()
+newVarsFromTuple v e = do
+   x <- evalExpM e
+   lift $ putStrLn $ show x
+   l <- getList x
+   let new = zip v l
+   mapM copy new
+   return ()
+   where
+      copy ((DVar t v), l) = do
+         x <- newVar t v
+         newl <- getLoc v
+         exp <- getValueFromLoc l
+         copyExpResult newl exp
 
+getTupleValues :: (MonadTrans m, MonadState S (m IO)) => [Var] -> Exp -> m IO ()
+getTupleValues e1 e2 = do
+   x <- evalExpM e2
+   l <- getList x
+   e <- mapM getLoc e1
+   let locs = zip e l
+   mapM copy locs
+   return ()
+   where
+      copy (l1, l2) = do
+         exp <- getValueFromLoc l2
+         copyExpResult l1 exp
 
 assignLocs :: (MonadTrans m, MonadState S (m IO)) => [Exp] -> m IO ExpResult
 assignLocs e = do
@@ -400,7 +416,6 @@ assignLocs e = do
                      assign' (e:es) l = do
                          x <- evalExpM e
                          S(fenv, venv, senv, (store, loc)) <- get
-                         --lift $ putStrLn $ "assignLocs: " ++ show x ++ ", to loc: " ++ show loc
                          put $ S (fenv, venv, senv, (M.insert loc x store, (loc + 1)))
                          assign' es (loc:l)
 
@@ -413,26 +428,48 @@ locsToArray t (MajaLoc l) = return $ MajaArray l t
 locsToStruct :: (MonadTrans m, MonadState S (m IO)) => Var -> ExpResult -> m IO ExpResult
 locsToStruct var (MajaLoc l) = do
                               S(fenv, venv, senv, (store, loc)) <- get
-                              let s = fromMaybe (error $ "<newVar>: Undefined struct type" ++ show var) $ M.lookup var senv
+                              let s = fromMaybe (error $ "<locsToStruct>: Undefined struct type" ++ show var) $ M.lookup var senv
                               assign' s l M.empty var
                               where
                                  assign' [] _ m var = return $ MajaStruct var m
                                  assign' _ [] _ _ = error ("<locsToStruct>: Not enough values specified")
                                  assign' ((StrField t s):ss) (l:ls) m var = do
-                                     lift $ putStrLn $ "locsToStruct: " ++ show t 
                                      case t of
                                        TStruct (TagType var') ->
                                           if var' == var then fail $ "Loop in struct declaration"
                                           else do
                                              x <- getValueFromLoc l
-                                             lift $ putStrLn $ "locsToStruct: " ++ show x
                                              e <- locsToStruct var' x
                                              S(fenv, venv, senv, (store, loc)) <- get
                                              put $ S (fenv, venv, senv, (M.insert l e store, loc))
                                              assign' ss ls (M.insert s (l, t) m) var           
                                        TStruct (Tag t s) -> fail $ "<locsToStruct>: Cannot define struct type: " ++ (show t) ++  " inside of struct: " ++ show var
                                        _ -> assign' ss ls (M.insert s (l, t) m) var            
-
+                                 --TODO do ogarnięcia jak to te strukty z tablicami tu maja dzialac
+                                 assign' ((StrFieldArr t s e):ss) (l:ls) m var = do
+                                     case t of
+                                       TArray t'@(TStruct (TagType var')) ->
+                                          if var' == var then fail $ "Loop in struct declaration"
+                                          else do
+                                             x <- getValueFromLoc l
+                                             list <- getList x
+                                             locs <- mapM getValueFromLoc list
+                                             exps <- mapM (locsToStruct var') locs
+                                             let maa = zip list exps
+                                             -- te lokacje, ktore dostaje, to na nie nadpisuje, a nie kopiuje
+                                             mapM (\(loc, exp) -> do { S(fenv, venv, senv, (store, l)) <- get; put $ S (fenv, venv, senv, (M.insert loc exp store, l));}) maa 
+                                             e <- locsToArray t' x
+                                             S(fenv, venv, senv, (store, loc)) <- get
+                                             put $ S (fenv, venv, senv, (M.insert l e store, loc))
+                                             assign' ss ls (M.insert s (l, t) m) var           
+                                       TArray (TStruct (Tag t s)) -> fail $ "<locsToStruct>: Cannot define struct type: " ++ (show t) ++  " inside of struct: " ++ show var
+                                       TArray t' -> do
+                                          x <- getValueFromLoc l
+                                          arr <- locsToArray t' x
+                                          S(fenv, venv, senv, (store, loc)) <- get
+                                          put $ S (fenv, venv, senv, (M.insert l arr store, loc))
+                                          assign' ss ls (M.insert s (l, t) m) var            
+                                   
 
 
 ifelse :: ExpResult -> t -> t -> t
@@ -519,7 +556,7 @@ evalExpM (EPreop LogNeg e) = do
                                 return $ majaNot x
 
 evalExpM (EFunkpar (FCall f e)) = do
-                           fun@(Func (d, l, s, ex, _, fenv, venv, senv)) <- getFun f
+                           fun@(Func (d, s, ex, _, fenv, venv, senv)) <- getFun f
                            venv <- assignFunParams fun e
                            x <- localEnvF (execStmts s >> evalExpM ex) fenv venv senv
                            return x
@@ -561,8 +598,6 @@ execStmtB (SBl b) = localEnv $ execStmtM' b
                            execStmtM' (s:ss) = execStmtM s >> execStmtM' ss
 
 execStmtM :: (MonadTrans m, MonadState S (m IO)) => Stmt -> m IO ()
---TODO dodaj rózne przypisywania w zależności od typu zmiennej
---     zeby lokacje sie nie powielały
 execStmtM (SAssign v e) = do
                            loc <- getLoc v
                            val <- getValueFromLoc loc
@@ -571,8 +606,6 @@ execStmtM (SAssign v e) = do
                               (MajaStruct t m) -> evalExpM e >>= locsToStruct t >>= (\x -> assign x loc)
                               _ -> evalExpM e >>= (\x -> assign x loc)  
 
---1)wez structa z sven 2)zobacz jakiego typu ma byc to do przypisania
---3) wyewaaluj odpowiednio e i przypisz
 execStmtM (SAssignS v vf e) = do
                                  loc <- getLoc v
                                  struct <- getValueFromLoc loc
@@ -595,18 +628,17 @@ execStmtM (SAssignA v e1 e2) = do
                                  x <- evalExpM e2
                                  assignArr v i x 
 
+execStmtM (SAssignT t) = do
+   case t of
+      TAssignN v1 v2 e -> newVarsFromTuple (v1:v2) e
+      TAssign e1 e2 e3 -> getTupleValues (e1:e2) e3
+
 execStmtM (SBlock b) = execStmtB b
 
---Decl/DeclArr/DeclVar
---obecnie tablice przekazywane są przez referencje, a nie kopiowane
 execStmtM (SDeclV (DVar t v) e) = case t of
                                     (TStruct tag@(Tag var s)) -> do
                                        --TODO typeChecker sprawdzaj czy po prawej stronie jest lista init
                                        x <- evalExpM e
-                                       lift $ putStrLn $ "declV deklaracja nowego structa"
-                                       --S (fenv, venv, senv, (store, loc)) <- get
-                                       --put $ S (fenv, (M.insert v loc venv), senv, (store, (loc + 1)))
-                                       --copyExpResult loc x
                                        newStructAssign tag v x 
                                     (TStruct tag@(TagType var)) -> do
                                        x <- evalExpM e
@@ -651,7 +683,7 @@ execStmtM (SFunC f) = do
                         x <- evalExpM (EFunkpar f)
                         return ()
 
---evalArrM :: (MonadTrans m, MonadState S (m IO)) => [ArrM] -> m [ExpResult]
+evalArrM :: (MonadTrans m, MonadState S (m IO)) => [ArrM] -> m IO [ExpResult]
 evalArrM a = eval a []
                where
                   eval [] l = return $ reverse l
@@ -709,6 +741,3 @@ execDeclM (DeclA (DArrI (TArray t) v e)) = do
 execDeclM (DeclS (Tag var sdecl)) = do
                                        S (fenv, venv, senv, (store, loc)) <- get
                                        put $ S (fenv, venv, (M.insert var sdecl senv), (store, loc))
-   
---TODO to powinien robic TypeChecker
-execDeclM (DeclS (TagType var)) = fail $ "<execDeclM-DeclStruct>: Body of struct not specified"

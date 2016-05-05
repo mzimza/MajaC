@@ -120,6 +120,7 @@ instance Print Stmt where
     SAssign id exp -> prPrec i 0 (concatD [prt 0 id, doc (showString "="), prt 0 exp, doc (showString ";")])
     SAssignS id1 id2 exp -> prPrec i 0 (concatD [prt 0 id1, doc (showString "."), prt 0 id2, doc (showString "="), prt 0 exp, doc (showString ";")])
     SAssignA id exp1 exp2 -> prPrec i 0 (concatD [prt 0 id, doc (showString "["), prt 0 exp1, doc (showString "]"), doc (showString "="), prt 0 exp2, doc (showString ";")])
+    SAssignT tuple -> prPrec i 0 (concatD [prt 0 tuple])
     SBlock block -> prPrec i 0 (concatD [prt 0 block])
     SDeclF decl -> prPrec i 0 (concatD [prt 0 decl])
     SDeclV declvar exp -> prPrec i 0 (concatD [prt 0 declvar, doc (showString "="), prt 0 exp, doc (showString ";")])
@@ -134,6 +135,11 @@ instance Print Stmt where
 instance Print Block where
   prt i e = case e of
     SBl stmts -> prPrec i 0 (concatD [doc (showString "{"), prt 0 stmts, doc (showString "}")])
+
+instance Print Tuple where
+  prt i e = case e of
+    TAssignN declvar declvars exp -> prPrec i 0 (concatD [doc (showString "("), prt 0 declvar, doc (showString ","), prt 0 declvars, doc (showString ")"), doc (showString "="), prt 0 exp, doc (showString ";")])
+    TAssign id ids exp -> prPrec i 0 (concatD [doc (showString "("), prt 0 id, doc (showString ","), prt 0 ids, doc (showString ")"), doc (showString "="), prt 0 exp, doc (showString ";")])
 
 instance Print Exp where
   prt i e = case e of
