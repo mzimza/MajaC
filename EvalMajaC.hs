@@ -22,7 +22,7 @@ import qualified Data.Map as M
 import Data.Maybe
 
 
-data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid | MajaLoc [Loc] 
+data ExpResult = MajaInt Integer | MajaBool Bool | MajaVoid | MajaLoc [Loc] | MajaList [ExpResult] 
                  | MajaArray [Loc] Type | MajaTuple [Loc] | MajaStruct Var (M.Map Var (Loc, Type))
  
 type Loc = Int
@@ -115,7 +115,7 @@ getVar :: MonadState S m => Var -> m ExpResult
 getVar v = do
              loc <- getLoc v
              S(_, _, _, (store, _)) <- get
-             return $ fromMaybe (error "<getVar>: Undefined variable") $ M.lookup loc store 
+             return $ fromMaybe (error $ "<getVar>: Undefined variable" ++ show v) $ M.lookup loc store 
 
 getValueFromLoc :: MonadState S m => Loc -> m ExpResult
 getValueFromLoc loc = do
@@ -270,8 +270,8 @@ assignExpToNewLoc :: MonadState S m => m ExpResult -> m Loc
 assignExpToNewLoc exp = do
    x <- exp
    S (fenv, venv, senv, (store, l)) <- get
-   copyExpResult l x
    put $ S (fenv, venv, senv, (store, (l + 1)))
+   copyExpResult l x
    return l
 
 assignFunParams :: (MonadTrans m, MonadState S (m IO)) => Func -> [Exp] -> m IO VEnv 
@@ -327,7 +327,7 @@ initArr t (MajaInt x) (s, l) e = assign' t [] x (s, l) e
                            TBool -> assign' t (loc:l) (x-1) ((M.insert loc (MajaBool False) store), (loc+1)) e
                            TStruct (TagType var) -> do
                               S(_, _ , senv, _) <- get
-                              let _ = fromMaybe (error $ "<newVar>: Undefined struct type" ++ show var) $ M.lookup var senv
+                              let _ = fromMaybe (error $ "<initArr>: Undefined struct type" ++ show var) $ M.lookup var senv
                               assign' t (loc:l) (x-1) ((M.insert loc (MajaStruct var M.empty) store), (loc+1)) e
                            TArray typ -> do
                               case e of
@@ -357,10 +357,17 @@ newArrAssign t v locs@(MajaLoc l) = do
 
 assignArr :: MonadState S m => Var -> ExpResult -> ExpResult -> m ()
 assignArr v (MajaInt i) e = do
-                     var <- getVar v
-                     l <- getList var
+                     (MajaArray l t) <- getVar v
+                     --l <- getList var
                      if length l <= fromInteger i then error ("<assignArr>: Index out of range")
-                     else assign e (l !! fromInteger i)
+                     else do
+                        x <- getValueFromLoc $ l !! fromInteger i
+                        
+                        case e of
+                           MajaLoc lo -> do
+                              e' <- locsToArray t e
+                              assign e' (l !! fromInteger i)
+                           _ -> assign e (l !! fromInteger i)
 
 getList :: MonadState S m => ExpResult -> m [Loc]
 getList e = case e of
@@ -383,7 +390,6 @@ getElemLocAt e i = do
 newVarsFromTuple :: (MonadTrans m, MonadState S (m IO)) => [DeclVar] -> Exp -> m IO ()
 newVarsFromTuple v e = do
    x <- evalExpM e
-   lift $ putStrLn $ show x
    l <- getList x
    let new = zip v l
    mapM copy new
@@ -471,20 +477,54 @@ locsToStruct var (MajaLoc l) = do
                                           assign' ss ls (M.insert s (l, t) m) var            
                                    
 
+expListToExpResult t l = do
+   case t of
+      MajaArray _ typ -> do
+         locs <- mapM (expListToExpResult typ) l   
+         S (fenv, venv, senv, (store, loc)) <- get
+         put $ S (fenv, venv, senv, (M.insert loc (MajaArray locs typ) store, (loc+1)))
+         return loc
+      MajaStruct var _ -> do
+         S (fenv, venv, senv, (store, loc)) <- get
+         let x = fromJust $ M.lookup var senv
+         locs <- mapM f $ zip l x
+         let m = M.fromList $ zip x locs
+         S (fenv, venv, senv, (store, loc)) <- get
+         put $ S (fenv, venv, senv, (M.insert loc (MajaStruct var m) store, (loc+1)))
+         return loc
+      {--MajaTuple typ -> do
+         locs <- mapM (\(t, v) -> expListToExpResult t v) $ zip typ l
+         S (fenv, venv, senv, (store, loc)) <- get
+         put $ S (fenv, venv, senv, (M.insert loc (MajaTuple locs) store, (loc+1)))
+         return loc
+      --}
+      _ -> do
+         S (fenv, venv, senv, (store, loc)) <- get
+         put $ S (fenv, venv, senv, (M.insert loc l store, (loc+1)))
+         return loc
+   where
+      f (x, (StrField t v)) = expListToExpResult t x
+      f (x, (StrFieldArr t v e)) = expListToExpResult t x
+      g ((StrField t v), loc) = (v, (loc, t))
+      g ((StrFieldArr t v e), loc) = (v, (loc, t))
 
 ifelse :: ExpResult -> t -> t -> t
 ifelse e f1 f2 = case e of
                      MajaBool True -> f1
                      MajaBool False -> f2
 
+
+evalList :: (MonadTrans m, MonadState S (m IO)) => [Exp] -> m IO ExpResult
+evalList e = return $ MajaList $ mapM evalExpM e
+
 evalExp e s = execStateT (evalExpM e) s
 
 evalExpM :: (MonadTrans m, MonadState S (m IO)) => Exp -> m IO ExpResult
 evalExpM (EEmpty) = return MajaVoid
 
-evalExpM (EIArr (IArr exp)) = assignLocs exp
+evalExpM (EIArr (IArr exp)) = evalList exp
 
-evalExpM (EITup (ITup e1 e2)) = assignLocs (e1:e2) >>= locsToTuple
+evalExpM (EITup (ITup e1 e2)) = evalList (e1:e2) -- >>= expResultToTuple
 
 evalExpM (EOr e1 e2) = do
                            x <- evalExpM e1
@@ -557,8 +597,8 @@ evalExpM (EPreop LogNeg e) = do
 
 evalExpM (EFunkpar (FCall f e)) = do
                            fun@(Func (d, s, ex, _, fenv, venv, senv)) <- getFun f
-                           venv <- assignFunParams fun e
-                           x <- localEnvF (execStmts s >> evalExpM ex) fenv venv senv
+                           venv' <- assignFunParams fun e
+                           x <- localEnvF (execStmts s >> evalExpM ex) fenv venv' senv
                            return x
                            where
                               execStmts [] = return ()
@@ -601,14 +641,20 @@ execStmtM :: (MonadTrans m, MonadState S (m IO)) => Stmt -> m IO ()
 execStmtM (SAssign v e) = do
                            loc <- getLoc v
                            val <- getValueFromLoc loc
-                           case val of
+                           x <- evalExpM e
+                           l' <- expListToExpResult val x
+                           S (fenv, venv, senv, (store, loc)) <- get
+                           put $ (fenv, M.insert v l' venv, senv, (store, loc))  
+                           {--case val of
                               (MajaArray _ t) -> evalExpM e >>= locsToArray t >>= (\x -> assign x loc)
                               (MajaStruct t m) -> evalExpM e >>= locsToStruct t >>= (\x -> assign x loc)
                               _ -> evalExpM e >>= (\x -> assign x loc)  
-
+--}
 execStmtM (SAssignS v vf e) = do
                                  loc <- getLoc v
-                                 struct <- getValueFromLoc loc
+                                 (MajaStruct var m) <- getValueFromLoc loc
+                                 x <- evalExpM e
+                                 l' <- expListToExpResult (fromJust $ M.lookup vf m) x 
                                  (l, typ) <- getLocTypeStruct struct vf
                                  case typ of
                                     (TStruct (TagType t)) -> do
@@ -637,7 +683,6 @@ execStmtM (SBlock b) = execStmtB b
 
 execStmtM (SDeclV (DVar t v) e) = case t of
                                     (TStruct tag@(Tag var s)) -> do
-                                       --TODO typeChecker sprawdzaj czy po prawej stronie jest lista init
                                        x <- evalExpM e
                                        newStructAssign tag v x 
                                     (TStruct tag@(TagType var)) -> do
