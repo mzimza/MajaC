@@ -79,7 +79,7 @@ execProg (Prog p) = execProg' p initS
    where                                                               
       execProg' [] (S(f,e,s,st)) = do                                  
          mapM_ (putStrLn . show) $ M.toList s
-   --      mapM_ (putStrLn . show) $ M.toList e
+         mapM_ (putStrLn . show) $ M.toList e
          mapM_ (putStrLn . show) $ M.toList $ fst st
       execProg' (p:ps) (S(f,e,s,st)) = do                              
          x <- execStmt p (S(f,e,s,st))      
@@ -190,7 +190,8 @@ convertExpResult def elem = convert (def, elem)
             getList (MajaList l) = l
             getList (MajaArrayEval l) = l
             getList (MajaTupleEval l) = l
-                                                                                
+            getList (MajaStructEval var m) = M.elems m
+
 defaultValue :: (MonadTrans m, MonadState S (m IO)) => Type -> [Int] -> m IO ExpResult
 defaultValue t e = case t of
    TInt -> return $ MajaInt 0
@@ -262,7 +263,7 @@ alloc x = assignToNewLoc x
 
 listToStruct :: (MonadTrans m, MonadState S (m IO)) => [ExpResult] -> [Type] -> m IO [ExpResult]
 listToStruct l t = do
-   lift $ putStrLn $ show l
+   --lift $ putStrLn $ show l
    mapM f $ zip t l
    where 
       f (typ, elem) = case elem of
@@ -273,7 +274,7 @@ listToStruct l t = do
                   l' <- mapM f $ zip (replicate (length list) t) list 
                   return $ MajaArrayEval l'
                TStruct tag@(TagType var) -> do
-                  lift $ putStrLn $ show elem
+                  --lift $ putStrLn $ show elem
                   let MajaList list = elem
                   S (fenv, venv, senv, (store, loc)) <- get
                   let m = fromJust $ M.lookup var senv
@@ -301,11 +302,18 @@ assign v val = do
       MajaStruct var' m -> do
          S (fenv, venv, senv, (store, loc)) <- get
          let m = fromJust $ M.lookup var' senv
-         let MajaList list = val
-         l' <- listToStruct list $ map justType (M.elems m)
-         let str = MajaStructEval var' $ M.fromList $ zip (M.keys m) l'
-         l <- alloc str
-         copy v l
+         case val of
+            MajaStructEval var ma -> do
+               --mozliwy blad, ze trzeba tu dac zamiast list M.elems ma
+               l <- alloc val
+               copy v l
+            _ -> do
+               --lift $ putStrLn $ "assign str: " ++ show val
+               let MajaList list = val
+               l' <- listToStruct list $ map justType (M.elems m)
+               let str = MajaStructEval var' $ M.fromList $ zip (M.keys m) l'
+               l <- alloc str
+               copy v l
       _ -> do 
          l <- alloc val
 --         lift $ putStrLn $ "assign po allocu: " ++ show l
@@ -490,7 +498,7 @@ execStmtM (SBlock b) = execStmtB b
 execStmtM (SDeclV (DVar t v) e) = do
    x <- evalExpM e
    def <- newVar t v []
-   lift $ putStrLn $ show x
+   --lift $ putStrLn $ show x
    assign v $ convertExpResult def x
 
 execStmtM (SDeclF d) = execDeclM d                                              
