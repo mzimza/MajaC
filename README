@@ -1,0 +1,21 @@
+Opis języka programowania MajaC
+
+0) Wstęp
+	MajaC jest to  język jest silnie typowany i statycznie wiązany. Występują w nim proste typy danych (int, bool) oraz złożone (struktury, tablice i krotki). Pozwala na deklarowanie funkcji zwracających każdy z typów danych. Możliwe jest ponowne deklarowanie zmiennych/funkcji/typów struktur o tej samej nazwie, wtedy wiążąca jest ostatnia deklaracja. Funkcje, typy i struktury mogą się tak samo nazywać (nie współdzielą środowisk nazw).
+1) Typy proste
+	Zmienne typów int i bool są porównywalne (ale tylko ze zmiennymi swojego typu). Zmienne są domyślnie inicjalizowane na 0/false.
+2) Typy złożone
+	a) tablice
+		Tablice można deklarować na dwa sposoby - albo poprzez listę inicjalizującą, albo poprzez określenie jej rozmiaru (wtedy wstawiane są domyślne wartości np. 0 dla inta), który jednak potem można zmienić.
+		Do tablic można przypisywać wartości pod dany index, bądź pod całą tablicę. Nie dopuszczane jest jednak przypisywanie pod wielokrotny indeks tablicy (np. tab[0][0] = x), jednakże można taką wartość przypisać na zmienną (np a = tab[0][0]), bądź podać do funkcji przez referencję i w ten sposób ją zmienić. 
+	b) struktury
+		Możliwe jest definiowanie swoich własnych typów struktur, a następnie tworzenie zmiennych o danym typie strukturalnym.
+		Struktury mogą mieć pola każdego typu, z zastrzeżeniem, że tablice wewnątrz struktury są tylko jednowymiarowe oraz nie występuje zapętlenie typów struktur, ani definicja nowego typu struktur.
+		Deklarowanie nowej zmiennej typu struct może odbywać się razem z definiowaniem nowego typu struct. Podobnie jak w przypadku tablic nie dopuszczalne jest przypisywanie do wielokrotnie zagłębionego pola struktury (np. a.b.c = x), ale można go modyfikować poprzez podanie do funkcji przez referencję.
+	c) krotki
+		Na zmienną tego typu można przypisać wartości albo przez listę inicjalizacyjną dla krotek, albo poprzez skopiowanie innej krotki o tych samych typach. Istnieją dwa sposoby pozyskiwania wartości z krotki - albo przez przypisanie na listę zmiennych już zadeklarowanych (np. (a, b) = tup), albo przez jednoczesne zadeklarowanie i przypisanie do nowych zmiennych (np. (int a, int b = tup)). W tym przypadku jednak nie prawidłowe jest przypisywanie krotki, która zawiera w sobie tablicę. 
+3) Funkcje
+	Język pozwala na deklarowanie funkcji rekurencyjnych i dowolnie zagnieżdżonych. Ostatnią instrukcją funkcji musi być "return". Dla funkcji typu void (procedur) jest to "return ;;", dla pozostałych typów "return e;", gdzie e jest wyrażeniem typu zwracanego przez funkcję. 
+	Do funkcji parametry mogą być przekazywane zarówno przez wartość, jak i przez referencję.
+4) Pętle i bloki
+	Dostępne są dwa rodzaje pętli: while oraz for. W forze iterować można wyłącznie po intach. W obydwu pętlach oraz w ifach warunki muszą być typu logicznego. 

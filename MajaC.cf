@@ -32,7 +32,6 @@ SAssignA. Stmt ::= Ident "[" Exp "]" "=" Exp ";";
 SAssignT. Stmt ::= Tuple;
 SBlock. Stmt ::= Block;
 SDeclF. Stmt ::= Decl;
---SDeclA. Stmt ::= DeclArr "=" Exp ";";
 SDeclV. Stmt ::= DeclVar "=" Exp ";";
 SIf. Stmt ::= "if" Exp Block;
 SIfElse. Stmt ::= "if" Exp Block "else" Block;
