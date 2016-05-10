@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}                                                 
 {-# LANGUAGE FlexibleContexts #-}                                                  
                                                                                    
-module EvalMajaC2 where                                                             
+module EvalMajaC where                                                             
                                                                                    
 import AbsMajaC                                                                    
 import Control.Monad.Reader                                                        
