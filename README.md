@@ -16,45 +16,58 @@
   1. Basic
     1. Integer (int)
     2. Boolean (bool)
+    
     These data types are comparable, but only with data of the same type (ints with ints and bools with bools). They are initialised to default values (0 and false respectively).
   2. Complex
     1. Arrays
+
       Arrays can be declared in two ways - either by an initialization list or by declaring its length up front (in this case it's initialised to the default values of its type), which (the lnegth) can be alterd later on. 
       Arrays can be changed by assigning data both to a specified index and to the whole array(length of the array can change). It is forbidden to assign a value to a "multiple" index (e.g. arr[1][2] = x), although such values can be accessed and assigned to a variable (e.g. x = arr[1][2]) or passed by reference to a function and changed inside the function.
     2. Structures
+      
       In order to create a structure variable, it is required to first define a structure type. 
       Fields in a structure can be of any type, but arrays indside structures can be only 1 dimensional. All fields in a structure which are structures cannot create a loop. It is also forbidden to specify a new structure type within a structure. 
       The declaration of a new structure varaible can be done with the definition of a new structure type. Structure variables are also initialised to their's default values.
       Just like with arrays, assignment to a "multiple" select is impossible (e.g. str.a.b = x). To modify a multiply nested field of a struct it can be passed by reference to a function.
     3. Tuples
+      
       Assignment to a variable of this type can be done either by an initializatio list for tuples or by copying of another tuple of the same types.
       There are to ways to get values from a tuple:
         1. assigning values of a tuple to predefined list of variables (e.g. (a, b) = tup),
         2. assigning values of a tuple to a list of new variables (e.g. (int a, int b) = tup).
       In the latter case, assignment of a tuple which contains an array is forbidden.
 2. Functions
+  
   MajaC allows to define recursive and nested functions. Arguments can be passed both by value and by reference. The grammar of MajaC language requires that each function ends with either *return ;;* (for void functions) or *return _exp_;* (for other functions).
 3. Control flow
+  
   There are two types of loops: a *for* loop and a *while* loop. A *for* loop's iterator must be an int and all conditions must be of boolean type.
 
 ##Opis języka programowania MajaC
 
 0. Wstęp
-MajaC jest to  język jest silnie typowany i statycznie wiązany. Występują w nim proste typy danych (int, bool) oraz złożone (struktury, tablice i krotki). Pozwala na deklarowanie funkcji zwracających każdy z typów danych. Możliwe jest ponowne deklarowanie zmiennych/funkcji/typów struktur o tej samej nazwie, wtedy wiążąca jest ostatnia deklaracja. Funkcje, typy i struktury mogą się tak samo nazywać (nie współdzielą środowisk nazw).
+
+  MajaC jest to  język jest silnie typowany i statycznie wiązany. Występują w nim proste typy danych (int, bool) oraz złożone (struktury, tablice i krotki). Pozwala na deklarowanie funkcji zwracających każdy z typów danych. Możliwe jest ponowne deklarowanie zmiennych/funkcji/typów struktur o tej samej nazwie, wtedy wiążąca jest ostatnia deklaracja. Funkcje, typy i struktury mogą się tak samo nazywać (nie współdzielą środowisk nazw).
 1. Typy proste
-	Zmienne typów int i bool są porównywalne (ale tylko ze zmiennymi swojego typu). Zmienne są domyślnie inicjalizowane na 0/false.
+
+  Zmienne typów int i bool są porównywalne (ale tylko ze zmiennymi swojego typu). Zmienne są domyślnie inicjalizowane na 0/false.
 2. Typy złożone
   1. tablice
-	Tablice można deklarować na dwa sposoby - albo poprzez listę inicjalizującą, albo poprzez określenie jej rozmiaru (wtedy wstawiane są domyślne wartości np. 0 dla inta), który jednak potem można zmienić.
-	Do tablic można przypisywać wartości pod dany index, bądź pod całą tablicę. Nie dopuszczane jest jednak przypisywanie pod wielokrotny indeks tablicy (np. tab[0][0] = x), jednakże można taką wartość przypisać na zmienną (np a = tab[0][0]), bądź podać do funkcji przez referencję i w ten sposób ją zmienić. 
+	
+    Tablice można deklarować na dwa sposoby - albo poprzez listę inicjalizującą, albo poprzez określenie jej rozmiaru (wtedy wstawiane są domyślne wartości np. 0 dla inta), który jednak potem można zmienić.
+    Do tablic można przypisywać wartości pod dany index, bądź pod całą tablicę. Nie dopuszczane jest jednak przypisywanie pod wielokrotny indeks tablicy (np. tab[0][0] = x), jednakże można taką wartość przypisać na zmienną (np a = tab[0][0]), bądź podać do funkcji przez referencję i w ten sposób ją zmienić. 
   2. struktury
-	Możliwe jest definiowanie swoich własnych typów struktur, a następnie tworzenie zmiennych o danym typie strukturalnym.
-	Struktury mogą mieć pola każdego typu, z zastrzeżeniem, że tablice wewnątrz struktury są tylko jednowymiarowe oraz nie występuje zapętlenie typów struktur, ani definicja nowego typu struktur.
-	Deklarowanie nowej zmiennej typu struct może odbywać się razem z definiowaniem nowego typu struct. Podobnie jak w przypadku tablic nie dopuszczalne jest przypisywanie do wielokrotnie zagłębionego pola struktury (np. a.b.c = x), ale można go modyfikować poprzez podanie do funkcji przez referencję.
+	
+    Możliwe jest definiowanie swoich własnych typów struktur, a następnie tworzenie zmiennych o danym typie strukturalnym.
+    Struktury mogą mieć pola każdego typu, z zastrzeżeniem, że tablice wewnątrz struktury są tylko jednowymiarowe oraz nie występuje zapętlenie typów struktur, ani definicja nowego typu struktur.
+    Deklarowanie nowej zmiennej typu struct może odbywać się razem z definiowaniem nowego typu struct. Podobnie jak w przypadku tablic nie dopuszczalne jest przypisywanie do wielokrotnie zagłębionego pola struktury (np. a.b.c = x), ale można go modyfikować poprzez podanie do funkcji przez referencję.
   3. krotki
-	Na zmienną tego typu można przypisać wartości albo przez listę inicjalizacyjną dla krotek, albo poprzez skopiowanie innej krotki o tych samych typach. Istnieją dwa sposoby pozyskiwania wartości z krotki - albo przez przypisanie na listę zmiennych już zadeklarowanych (np. (a, b) = tup), albo przez jednoczesne zadeklarowanie i przypisanie do nowych zmiennych (np. (int a, int b = tup)). W tym przypadku jednak nie prawidłowe jest przypisywanie krotki, która zawiera w sobie tablicę. 
+	
+    Na zmienną tego typu można przypisać wartości albo przez listę inicjalizacyjną dla krotek, albo poprzez skopiowanie innej krotki o tych samych typach. Istnieją dwa sposoby pozyskiwania wartości z krotki - albo przez przypisanie na listę zmiennych już zadeklarowanych (np. (a, b) = tup), albo przez jednoczesne zadeklarowanie i przypisanie do nowych zmiennych (np. (int a, int b = tup)). W tym przypadku jednak nie prawidłowe jest przypisywanie krotki, która zawiera w sobie tablicę. 
 3. Funkcje
-	Język pozwala na deklarowanie funkcji rekurencyjnych i dowolnie zagnieżdżonych. Ostatnią instrukcją funkcji musi być "return". Dla funkcji typu void (procedur) jest to "return ;;", dla pozostałych typów "return e;", gdzie e jest wyrażeniem typu zwracanego przez funkcję. 
-	Do funkcji parametry mogą być przekazywane zarówno przez wartość, jak i przez referencję.
+	
+  Język pozwala na deklarowanie funkcji rekurencyjnych i dowolnie zagnieżdżonych. Ostatnią instrukcją funkcji musi być "return". Dla funkcji typu void (procedur) jest to "return ;;", dla pozostałych typów "return e;", gdzie e jest wyrażeniem typu zwracanego przez funkcję. 
+    Do funkcji parametry mogą być przekazywane zarówno przez wartość, jak i przez referencję.
 4. Pętle i bloki
-	Dostępne są dwa rodzaje pętli: while oraz for. W forze iterować można wyłącznie po intach. W obydwu pętlach oraz w ifach warunki muszą być typu logicznego. 
+	
+  Dostępne są dwa rodzaje pętli: while oraz for. W forze iterować można wyłącznie po intach. W obydwu pętlach oraz w ifach warunki muszą być typu logicznego. 
