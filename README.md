@@ -22,13 +22,13 @@
     1. Arrays
 
       Arrays can be declared in two ways - either by an initialization list or by declaring its length up front (in this case it's initialised to the default values of its type), which (the lnegth) can be alterd later on. 
-      Arrays can be changed by assigning data both to a specified index and to the whole array(length of the array can change). It is forbidden to assign a value to a "multiple" index (e.g. arr[1][2] = x), although such values can be accessed and assigned to a variable (e.g. x = arr[1][2]) or passed by reference to a function and changed inside the function.
+      Arrays can be changed by assigning data both to a specified index and to the whole array(length of the array can change). 
     2. Structures
       
       In order to create a structure variable, it is required to first define a structure type. 
       Fields in a structure can be of any type, but arrays indside structures can be only 1 dimensional. All fields in a structure which are structures cannot create a loop. It is also forbidden to specify a new structure type within a structure. 
       The declaration of a new structure varaible can be done with the definition of a new structure type. Structure variables are also initialised to their's default values.
-      Just like with arrays, assignment to a "multiple" select is impossible (e.g. str.a.b = x). To modify a multiply nested field of a struct it can be passed by reference to a function.
+     
     3. Tuples
       
       Assignment to a variable of this type can be done either by an initializatio list for tuples or by copying of another tuple of the same types.
